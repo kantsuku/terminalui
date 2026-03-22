@@ -29,7 +29,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [renaming, setRenaming] = useState(null);
   const [inputText, setInputText] = useState('');
   const [connState, setConnState] = useState('disconnected');
-  const [autoEnter, setAutoEnter] = useState(() => localStorage.getItem('termui-auto-enter') !== 'false');
+  const autoEnterKey = `termui-auto-enter-${userName}`;
+  const [autoEnter, setAutoEnter] = useState(() => localStorage.getItem(`termui-auto-enter-${userName}`) !== 'false');
   const [history, setHistory] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
   const inputHistoryIdxRef = useRef(-1);
@@ -477,7 +478,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                 e.preventDefault();
                 const next = !autoEnter;
                 setAutoEnter(next);
-                localStorage.setItem('termui-auto-enter', next);
+                localStorage.setItem(autoEnterKey, next);
                 panelRef.current?.setAutoYes(next);
                 panelRef.current?.setClientAutoEnter(next);
               }}

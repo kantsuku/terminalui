@@ -36,29 +36,17 @@ function UserGate({ onEnter }) {
   );
 }
 
-export default function App() {
-  const urlUser = new URLSearchParams(location.search).get('user');
-
-  // ?user= がない場合は名前入力画面を表示し、入力後URLにリダイレクト
-  if (!urlUser) {
-    return <UserGate onEnter={name => {
-      const url = new URL(location.href);
-      url.searchParams.set('user', name);
-      location.replace(url.toString());
-    }} />;
-  }
-
-  const userName = urlUser;
+function AppMain({ userName }) {
+  const modeKey = `termui-force-mode-${userName}`;
 
   const [forceMode, setForceMode] = useState(
-    () => localStorage.getItem('termui-force-mode') || null
+    () => localStorage.getItem(modeKey) || null
   );
   const [viewportMobile, setViewportMobile] = useState(() => window.innerWidth < 1024);
   const [showSettings, setShowSettings] = useState(false);
   const sessionHook = useSessions();
   const { settings: baseSettings, save, reset } = useSettings();
 
-  // 画像は別キーで保存されてるので初回マージ
   const [settings, setSettings] = useState(() => ({
     ...baseSettings,
     ...loadSavedImages(),
@@ -77,7 +65,7 @@ export default function App() {
   const isMobile = forceMode ? forceMode === 'mobile' : viewportMobile;
 
   const switchTo = (mode) => {
-    localStorage.setItem('termui-force-mode', mode);
+    localStorage.setItem(modeKey, mode);
     setForceMode(mode);
   };
 
@@ -118,4 +106,18 @@ export default function App() {
       )}
     </>
   );
+}
+
+export default function App() {
+  const urlUser = new URLSearchParams(location.search).get('user');
+
+  if (!urlUser) {
+    return <UserGate onEnter={name => {
+      const url = new URL(location.href);
+      url.searchParams.set('user', name);
+      location.replace(url.toString());
+    }} />;
+  }
+
+  return <AppMain userName={urlUser} />;
 }
