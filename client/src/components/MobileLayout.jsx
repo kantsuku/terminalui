@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
-import QRModal from './QRModal';
 import './MobileLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -27,7 +26,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [activeIdx, setActiveIdx] = useState(0);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [showQR, setShowQR] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [inputText, setInputText] = useState('');
   const [connState, setConnState] = useState('disconnected');
@@ -314,7 +312,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       <header className="ml-header">
         <button className="ml-hbtn" onPointerDown={() => setShowDrawer(true)}>☰</button>
         <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onSwitchMode(); }} title="PC版に切替">🖥</button>
-        <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); setShowQR(true); }} title="QR">📱</button>
         <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onOpenSettings?.(); }} title="設定">⚙</button>
         {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)', padding: '0 4px', flexShrink: 0 }}>@{userName}</span>}
         <div className="ml-tabs">
@@ -571,7 +568,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
       {showNewModal && <NewSessionModal onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
       {renaming && <RenameModal currentName={renaming.name} onConfirm={handleRename} onCancel={() => setRenaming(null)} />}
-      {showQR && <QRModal onClose={() => setShowQR(false)} />}
     </div>
   );
 }
