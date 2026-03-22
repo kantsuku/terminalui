@@ -1,0 +1,232 @@
+.sm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.sm-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 520px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* タブ */
+.sm-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sm-tab {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  margin-bottom: -1px;
+}
+.sm-tab:hover { color: var(--text); background: var(--bg3); }
+.sm-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ボディ */
+.sm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sm-section {}
+
+.sm-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.sm-input {
+  width: 100%;
+  font-size: 14px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+/* 画像グリッド */
+.sm-img-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.sm-img-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-img-preview {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sm-img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.sm-img-placeholder {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sm-img-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sm-img-btn {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  user-select: none;
+}
+.sm-img-btn:hover { border-color: var(--accent); }
+
+.sm-img-clear {
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--red);
+  border-color: var(--red);
+  background: transparent;
+}
+
+/* カラー */
+.sm-color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sm-color-picker {
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.sm-color-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: monospace;
+}
+
+.sm-color-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 0 10px currentColor;
+}
+
+.sm-color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sm-preset {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border-width: 1px;
+}
+.sm-preset:hover { opacity: 0.8; }
+
+/* セリフ */
+.sm-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.sm-textarea {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.sm-reset-lines {
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* フッター */
+.sm-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}

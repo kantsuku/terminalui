@@ -1,0 +1,14 @@
+{
+  "name": "ラムちゃんターミナル",
+  "short_name": "ラムちゃん",
+  "description": "ラムちゃんがお手伝いするターミナルUIだっちゃ！",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#1c2128",
+  "orientation": "any",
+  "icons": [
+    { "src": "/character.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/character.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

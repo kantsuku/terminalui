@@ -1,0 +1,29 @@
+.terminal-panel-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0d1117;
+  position: relative;
+}
+
+.terminal-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm.js overrides */
+.terminal-container .xterm {
+  height: 100%;
+  padding: 4px;
+}
+.terminal-container .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: #30363d transparent;
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll !important;
+}
+
+/* mobile: let touch events pass through canvas to the scrollable viewport */
+.terminal-container .xterm-screen canvas {
+  pointer-events: none;
+}

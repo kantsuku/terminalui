@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ラムちゃんターミナル</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ラムちゃん" />
+    <meta name="theme-color" content="#1c2128" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+      body {
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div style="color:#58a6ff;padding:20px;font-size:18px">よんでるっちゃ...⚡</div></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+  </body>
+</html>

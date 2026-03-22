@@ -1,0 +1,70 @@
+.mobile-input {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Helper keys row */
+.helper-keys {
+  display: flex;
+  gap: 6px;
+  padding: 8px 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.helper-keys::-webkit-scrollbar { display: none; }
+
+.hkey {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  min-width: 48px;
+  min-height: 44px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hkey.active { background: var(--accent); border-color: var(--accent); color: #000; }
+
+/* Input row */
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 10px;
+}
+
+.input-area {
+  flex: 1;
+  resize: none;
+  min-height: 72px;
+  max-height: 180px;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 10px;
+  border-radius: var(--radius);
+}
+
+.input-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-end;
+}
+
+.input-actions button.icon {
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
