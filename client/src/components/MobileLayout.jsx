@@ -151,8 +151,28 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }, 2000);
   }, [playDoneSound]);
 
+  const THINKING_RE = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒]|[Tt]hinking/;
+
   const handleOutput = useCallback((data) => {
     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+
+    if (THINKING_RE.test(clean)) {
+      setIsThinking(true);
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 30000);
+      // thinking 中は working タイマーをリセットして完了通知を防ぐ
+      clearTimeout(workingTimerRef.current);
+      workingTimerRef.current = setTimeout(() => {
+        setIsWorking(false);
+        setIsThinking(false);
+      }, 30000);
+      return;
+    }
+
+    // thinking 以外の出力が来たら thinking を解除
+    setIsThinking(false);
+    clearTimeout(thinkingTimerRef.current);
+
     if (/\bError:|error:|\bfailed to\b|✗ /.test(clean)) {
       setIsError(true);
       clearTimeout(errorTimerRef.current);

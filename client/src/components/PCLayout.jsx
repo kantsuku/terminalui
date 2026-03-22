@@ -41,6 +41,16 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   }, []);
   const panelRefs = useRef({});
   const initializedRef = useRef(false);
+  const mainAreaRef = useRef(null);
+
+  // ターミナルのホイールイベントがサイドバーに伝播するのを防ぐ
+  useEffect(() => {
+    const el = mainAreaRef.current;
+    if (!el) return;
+    const handler = (e) => e.stopPropagation();
+    el.addEventListener('wheel', handler, { passive: true });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
   const [, tick] = useState(0);
 
   // セリフ更新用タイマー
@@ -88,8 +98,26 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     }, 2000);
   }, []);
 
+  const THINKING_RE = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒]|[Tt]hinking/;
+
   const handleOutput = useCallback((data) => {
     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+
+    if (THINKING_RE.test(clean)) {
+      setIsThinking(true);
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 30000);
+      clearTimeout(workingTimerRef.current);
+      workingTimerRef.current = setTimeout(() => {
+        setIsWorking(false);
+        setIsThinking(false);
+      }, 30000);
+      return;
+    }
+
+    setIsThinking(false);
+    clearTimeout(thinkingTimerRef.current);
+
     if (/\bError:|error:|\bfailed to\b|✗ /.test(clean)) {
       setIsError(true);
       clearTimeout(errorTimerRef.current);
@@ -226,7 +254,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
       </aside>
 
       {/* ── 右メインエリア ── */}
-      <div className="main-area">
+      <div className="main-area" ref={mainAreaRef}>
         {count === 0 ? (
           <div className="panel-empty" style={{ flex: 1 }}>
             <div>左のセッション一覧をクリックして表示するっちゃ！</div>
