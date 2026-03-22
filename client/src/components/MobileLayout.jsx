@@ -130,10 +130,14 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     } catch {}
   }, []);
 
+  const thinkingSetAtRef = useRef(0);
+
   const handleActivity = useCallback(() => {
-    // 出力が来たらthinking解除
-    setIsThinking(false);
-    clearTimeout(thinkingTimerRef.current);
+    // thinking 状態は最低1秒維持する
+    if (Date.now() - thinkingSetAtRef.current > 1000) {
+      setIsThinking(false);
+      clearTimeout(thinkingTimerRef.current);
+    }
 
     setIsWorking(true);
     clearTimeout(workingTimerRef.current);
@@ -157,6 +161,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 
     if (THINKING_RE.test(clean)) {
+      thinkingSetAtRef.current = Date.now();
       setIsThinking(true);
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 30000);

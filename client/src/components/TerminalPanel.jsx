@@ -187,10 +187,24 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     });
     ro.observe(containerRef.current);
 
+    // マウスホイールをキャプチャして viewport を手動スクロール
+    // xterm がマウスモード中でもエスケープシーケンスを pty に送らないようにする
+    const wheelHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const vp = containerRef.current?.querySelector('.xterm-viewport');
+      if (vp) {
+        vp.scrollTop += e.deltaY;
+        vp.dispatchEvent(new Event('scroll'));
+      }
+    };
+    containerRef.current.addEventListener('wheel', wheelHandler, { passive: false, capture: true });
+
     return () => {
       mounted = false;
       clearTimeout(reconnectTimeout);
       ro.disconnect();
+      containerRef.current?.removeEventListener('wheel', wheelHandler, { capture: true });
       wsRef.current?.close();
       wsRef.current = null;
       term.dispose();

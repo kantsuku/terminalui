@@ -81,9 +81,14 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     );
   }, []);
 
+  const thinkingSetAtRef = useRef(0);
+
   const handleActivity = useCallback(() => {
-    setIsThinking(false);
-    clearTimeout(thinkingTimerRef.current);
+    // thinking 状態は handleOutput が管理するので、最低1秒は維持する
+    if (Date.now() - thinkingSetAtRef.current > 1000) {
+      setIsThinking(false);
+      clearTimeout(thinkingTimerRef.current);
+    }
     setIsWorking(true);
     clearTimeout(workingTimerRef.current);
     workingTimerRef.current = setTimeout(() => {
@@ -104,6 +109,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 
     if (THINKING_RE.test(clean)) {
+      thinkingSetAtRef.current = Date.now();
       setIsThinking(true);
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 30000);
@@ -370,7 +376,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       </label>
                       <button
                         className="primary panel-send"
-                        onClick={() => {
+                        onPointerDown={e => {
+                          e.preventDefault();
                           const val = panelInput[name];
                           if (!val) return;
                           panelRefs.current[name]?.sendInput(val + '\r');
