@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
+import QRModal from './QRModal';
 import './PCLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -26,6 +27,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     return [];
   });
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [autoYes, setAutoYes] = useState({});
   const [panelInput, setPanelInput] = useState({});
@@ -237,6 +239,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         <div className="sidebar-header">
           <span className="logo">⚡ {settings.name || 'ラムちゃん'}</span>
           {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{userName}</span>}
+          <button className="icon" title="QR" onClick={() => setShowQR(true)}>📱</button>
           <button className="icon" title="設定" onClick={onOpenSettings}>⚙</button>
           <button className="icon" title="更新" onClick={fetchSessions}>↻</button>
         </div>
@@ -423,6 +426,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
 
       {showNewModal && <NewSessionModal onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
       {renaming && <RenameModal currentName={renaming.name} onConfirm={handleRename} onCancel={() => setRenaming(null)} />}
+      {showQR && <QRModal onClose={() => setShowQR(false)} />}
 
       {/* 履歴オーバーレイ */}
       {Object.entries(panelHistory).map(([sName, content]) =>

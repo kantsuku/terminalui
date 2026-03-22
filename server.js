@@ -67,6 +67,20 @@ app.post('/api/error-report', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/info', (req, res) => {
+  const PORT = process.env.PORT || 3001;
+  const nets = os.networkInterfaces();
+  const urls = [`http://localhost:${PORT}`];
+  for (const ifaces of Object.values(nets)) {
+    for (const iface of ifaces) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        urls.push(`http://${iface.address}:${PORT}`);
+      }
+    }
+  }
+  res.json({ urls });
+});
+
 app.get('/api/sessions', async (req, res) => {
   res.json(await listSessions());
 });
