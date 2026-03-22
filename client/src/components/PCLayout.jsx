@@ -16,8 +16,15 @@ const SKILLS = [
 ];
 
 
-export default function PCLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings }) {
-  const [activeSessions, setActiveSessions] = useState([]);
+export default function PCLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, userName = 'default' }) {
+  const activeKey = `termui-active-${userName}`;
+  const [activeSessions, setActiveSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`termui-active-${userName}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [showNewModal, setShowNewModal] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [autoYes, setAutoYes] = useState({});
@@ -81,12 +88,19 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     return () => clearTimeout(charDebounceRef.current);
   }, [isError, isDone, isThinking, isWorking]);
 
-  // 初回: 既存セッションを最大4つ自動選択
+  // activeSessions が変わるたびに localStorage に保存
+  useEffect(() => {
+    localStorage.setItem(activeKey, JSON.stringify(activeSessions));
+  }, [activeSessions, activeKey]);
+
+  // 初回: 保存済みがなければ既存セッションを最大4つ自動選択
   useEffect(() => {
     if (initializedRef.current || sessions.length === 0) return;
     initializedRef.current = true;
-    setActiveSessions(sessions.slice(0, 4).map(s => s.name));
-  }, [sessions]);
+    if (!localStorage.getItem(activeKey)) {
+      setActiveSessions(sessions.slice(0, 4).map(s => s.name));
+    }
+  }, [sessions, activeKey]);
 
   // セッションが消えたら active からも除去
   useEffect(() => {
@@ -222,6 +236,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         {/* ヘッダー */}
         <div className="sidebar-header">
           <span className="logo">⚡ {settings.name || 'ラムちゃん'}</span>
+          {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{userName}</span>}
           <button className="icon" title="設定" onClick={onOpenSettings}>⚙</button>
           <button className="icon" title="更新" onClick={fetchSessions}>↻</button>
         </div>

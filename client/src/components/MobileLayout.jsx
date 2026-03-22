@@ -22,7 +22,7 @@ const KEYS = [
   { label: 'C-d', data: '\x04' },
 ];
 
-export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings }) {
+export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, userName = 'default' }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -312,6 +312,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         <button className="ml-hbtn" onPointerDown={() => setShowDrawer(true)}>☰</button>
         <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onSwitchMode(); }} title="PC版に切替">🖥</button>
         <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onOpenSettings?.(); }} title="設定">⚙</button>
+        {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)', padding: '0 4px', flexShrink: 0 }}>@{userName}</span>}
         <div className="ml-tabs">
           {sessions.map((s, i) => {
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;

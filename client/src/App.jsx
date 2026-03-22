@@ -6,6 +6,8 @@ import MobileLayout from './components/MobileLayout';
 import SettingsModal from './components/SettingsModal';
 
 export default function App() {
+  const userName = new URLSearchParams(location.search).get('user') || 'default';
+
   const [forceMode, setForceMode] = useState(
     () => localStorage.getItem('termui-force-mode') || null
   );
@@ -54,6 +56,7 @@ export default function App() {
   const layoutProps = {
     ...sessionHook,
     settings,
+    userName,
     onOpenSettings: () => setShowSettings(true),
   };
 
