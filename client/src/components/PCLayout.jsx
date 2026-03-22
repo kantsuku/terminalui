@@ -11,8 +11,6 @@ const SKILLS = [
   { label: 'git push',  cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
   { label: 'git status',cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
   { label: 'git diff',  cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
-  { label: '/help',     cmd: '/help\r',               desc: 'Claude Codeで使えるコマンド一覧を表示する' },
-  { label: '/add .',    cmd: '/add .\r',              desc: '全ファイルをコンテキストに追加する' },
   { label: '/clear',    cmd: '/clear\r',              desc: 'AIとの会話履歴を全部消してリセットする', confirm: '会話履歴をリセットしますか？' },
 ];
 
