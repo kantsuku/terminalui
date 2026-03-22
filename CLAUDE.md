@@ -14,6 +14,13 @@
 - スマホから: `http://100.121.161.76:3001`（Tailscale IP）
 - PCから: `http://localhost:3001`
 
+## 新PC初回セットアップ
+```bash
+cd ~/Desktop/terminal-ui
+bash setup.sh
+```
+これだけで npm install・ビルド・uploadsフォルダ作成まで全部やるっちゃ。
+
 ## サーバー起動方法
 ```bash
 cd ~/Desktop/terminal-ui

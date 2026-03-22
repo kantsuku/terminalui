@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const fs = require('fs');
 const multer = require('multer');
 const os = require('os');
 
@@ -9,6 +10,8 @@ const { listSessions, createSession, killSession, sessionExists, renameSession }
 const { attachSession } = require('./lib/ptyManager');
 
 const UPLOAD_DIR = path.join(os.homedir(), 'Desktop', 'uploads');
+// 初回セットアップ: 必要なディレクトリを自動作成
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const upload = multer({
   storage: multer.diskStorage({
     destination: UPLOAD_DIR,
