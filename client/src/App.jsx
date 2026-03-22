@@ -5,6 +5,66 @@ import PCLayout from './components/PCLayout';
 import MobileLayout from './components/MobileLayout';
 import SettingsModal from './components/SettingsModal';
 
+function AuthGate({ onAuth }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!password) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        onAuth();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'エラーっちゃ');
+      }
+    } catch {
+      setError('サーバーに繋がらないっちゃ…');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', background: 'var(--bg)', gap: 16,
+    }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>⚡ Terminal UI</div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>パスワードを入れてっちゃ！</div>
+      <input
+        autoFocus
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+        placeholder="パスワード"
+        style={{
+          background: 'var(--bg2)', border: `1px solid ${error ? '#f85149' : 'var(--border)'}`,
+          borderRadius: 8, color: 'var(--text)', padding: '10px 16px', fontSize: 16, width: 220, outline: 'none',
+        }}
+      />
+      {error && <div style={{ color: '#f85149', fontSize: 12 }}>{error}</div>}
+      <button
+        className="primary"
+        style={{ padding: '10px 32px', fontSize: 14, borderRadius: 8 }}
+        onClick={submit}
+        disabled={loading}
+      >
+        {loading ? '確認中…' : '入る'}
+      </button>
+    </div>
+  );
+}
+
 function UserGate({ onEnter }) {
   const [name, setName] = useState('');
   return (
@@ -110,6 +170,22 @@ function AppMain({ userName }) {
 
 export default function App() {
   const urlUser = new URLSearchParams(location.search).get('user');
+  const [authState, setAuthState] = useState('checking'); // 'checking' | 'required' | 'ok'
+
+  useEffect(() => {
+    fetch('/api/auth-check')
+      .then(r => r.json())
+      .then(data => setAuthState(data.ok ? 'ok' : 'required'))
+      .catch(() => setAuthState('ok')); // サーバーエラー時はスルー
+  }, []);
+
+  if (authState === 'checking') {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', color: 'var(--text-muted)' }}>…</div>;
+  }
+
+  if (authState === 'required') {
+    return <AuthGate onAuth={() => setAuthState('ok')} />;
+  }
 
   if (!urlUser) {
     return <UserGate onEnter={name => {

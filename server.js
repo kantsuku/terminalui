@@ -1,13 +1,47 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
 const os = require('os');
 
 const { listSessions, createSession, killSession, sessionExists, renameSession } = require('./lib/tmux');
 const { attachSession } = require('./lib/ptyManager');
+
+// ── 認証 ───────────────────────────────────────────────────────────────────────
+const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || '';
+const AUTH_SECRET     = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex');
+
+function makeToken() {
+  return crypto.createHmac('sha256', AUTH_SECRET).update(ACCESS_PASSWORD).digest('hex');
+}
+
+function parseCookies(req) {
+  const list = {};
+  const rc = req.headers.cookie;
+  if (rc) rc.split(';').forEach(c => {
+    const [k, ...v] = c.split('=');
+    list[k.trim()] = decodeURIComponent(v.join('=').trim());
+  });
+  return list;
+}
+
+function isAuthenticated(req) {
+  if (!ACCESS_PASSWORD) return true;
+  return parseCookies(req)['termui-auth'] === makeToken();
+}
+
+function authMiddleware(req, res, next) {
+  if (!ACCESS_PASSWORD) return next();
+  if (req.path === '/api/login' || req.path === '/api/auth-check') return next();
+  if (req.path.startsWith('/api/') && !isAuthenticated(req)) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  next();
+}
 
 const UPLOAD_DIR = path.join(os.homedir(), 'Desktop', 'uploads');
 // 初回セットアップ: 必要なディレクトリを自動作成
@@ -37,6 +71,7 @@ const keepAlive = setInterval(() => {
 wss.on('close', () => clearInterval(keepAlive));
 
 app.use(express.json());
+app.use(authMiddleware);
 
 // Serve built client in production
 const clientDist = path.join(__dirname, 'client', 'dist');
@@ -64,6 +99,22 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 app.post('/api/error-report', (req, res) => {
   console.error('[CLIENT ERROR]', req.body.error);
+  res.json({ ok: true });
+});
+
+app.get('/api/auth-check', (req, res) => {
+  res.json({ ok: isAuthenticated(req), passwordRequired: !!ACCESS_PASSWORD });
+});
+
+app.post('/api/login', (req, res) => {
+  if (!ACCESS_PASSWORD) return res.json({ ok: true });
+  const { password } = req.body;
+  if (password !== ACCESS_PASSWORD) {
+    return res.status(401).json({ error: 'パスワードが違うっちゃ！' });
+  }
+  const token = makeToken();
+  const maxAge = 60 * 60 * 24 * 30; // 30日
+  res.setHeader('Set-Cookie', `termui-auth=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`);
   res.json({ ok: true });
 });
 
@@ -144,6 +195,10 @@ app.get('*', (req, res) => {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
 wss.on('connection', (ws, req) => {
+  if (!isAuthenticated(req)) {
+    ws.close(1008, 'unauthorized');
+    return;
+  }
   console.log('[WS] connected from', req.socket.remoteAddress);
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
