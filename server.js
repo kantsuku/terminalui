@@ -180,11 +180,38 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// ── 起動時セッション自動作成 ───────────────────────────────────────────────────
+// AUTO_SESSIONS="name:type,name2:type2" 形式で指定（type: shell | claude）
+// デフォルト: shell セッション + claude セッション
+async function ensureDefaultSessions() {
+  const raw = process.env.AUTO_SESSIONS || 'shell:shell,claude:claude';
+  const targets = raw.split(',').map(s => {
+    const [name, type = 'shell'] = s.trim().split(':');
+    return { name, type };
+  });
+
+  for (const { name, type } of targets) {
+    const exists = await sessionExists(name);
+    if (!exists) {
+      try {
+        const command = type === 'claude' ? 'claude' : undefined;
+        await createSession(name, command);
+        console.log(`[AutoSession] created "${name}" (${type})`);
+      } catch (e) {
+        console.warn(`[AutoSession] failed to create "${name}": ${e.message}`);
+      }
+    } else {
+      console.log(`[AutoSession] "${name}" already exists`);
+    }
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Terminal UI running → http://localhost:${PORT}`);
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Network: http://0.0.0.0:${PORT}`);
+  await ensureDefaultSessions();
 });

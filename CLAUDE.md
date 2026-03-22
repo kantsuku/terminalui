@@ -19,7 +19,7 @@
 cd ~/Desktop/terminal-ui
 # ビルドが必要な場合（クライアント変更後）
 npm run build
-# バックグラウンドで起動
+# バックグラウンドで起動（起動時に shell・claude セッションを自動作成）
 nohup node server.js > /tmp/terminal-ui.log 2>&1 &
 # 確認
 lsof -i :3001
@@ -27,6 +27,12 @@ lsof -i :3001
 tail -f /tmp/terminal-ui.log
 # 停止
 kill -9 $(lsof -t -i :3001)
+```
+
+### 自動起動セッションのカスタマイズ
+環境変数 `AUTO_SESSIONS` で起動時に自動作成するセッションを指定できる（デフォルト: `shell:shell,claude:claude`）。
+```bash
+AUTO_SESSIONS="myshell:shell,ai:claude" nohup node server.js > /tmp/terminal-ui.log 2>&1 &
 ```
 
 ## 技術スタック
