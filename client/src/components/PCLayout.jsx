@@ -304,7 +304,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
             }}
           >
             {activeSessions.map(name => {
-              const ay = autoYes[name] ?? true;
+              const ay = autoYes[name] ?? false;
               return (
                 <div key={name} className="panel">
                   <div className="panel-header">

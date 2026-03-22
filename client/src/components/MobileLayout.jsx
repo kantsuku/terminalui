@@ -30,7 +30,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [inputText, setInputText] = useState('');
   const [connState, setConnState] = useState('disconnected');
   const autoEnterKey = `termui-auto-enter-${userName}`;
-  const [autoEnter, setAutoEnter] = useState(() => localStorage.getItem(`termui-auto-enter-${userName}`) !== 'false');
+  const [autoEnter, setAutoEnter] = useState(() => localStorage.getItem(`termui-auto-enter-${userName}`) === 'true');
   const [history, setHistory] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
   const inputHistoryIdxRef = useRef(-1);
