@@ -35,21 +35,44 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [inputHistory, setInputHistory] = useState([]);
   const inputHistoryIdxRef = useRef(-1);
   const [activeSkill, setActiveSkill] = useState(null);
-  const [isWorking,  setIsWorking]  = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-  const [isDone,     setIsDone]     = useState(false);
-  const [isError,    setIsError]    = useState(false);
-  const [charTick,   setCharTick]   = useState(0);
-  const workingTimerRef  = useRef(null);
-  const thinkingTimerRef = useRef(null);
-  const doneTimerRef     = useRef(null);
-  const errorTimerRef    = useRef(null);
+  const [isWorking,        setIsWorking]        = useState(false);
+  const [isThinking,       setIsThinking]       = useState(false);
+  const [isDone,           setIsDone]           = useState(false);
+  const [isError,          setIsError]          = useState(false);
+  const [charTick,         setCharTick]         = useState(0);
+  const [displayCharState, setDisplayCharState] = useState('idle');
+  const workingTimerRef   = useRef(null);
+  const thinkingTimerRef  = useRef(null);
+  const doneTimerRef      = useRef(null);
+  const errorTimerRef     = useRef(null);
+  const charDebounceRef   = useRef(null);
 
   // キャラ画像切替用タイマー（8秒ごと）
   useEffect(() => {
     const id = setInterval(() => setCharTick(t => t + 1), 8000);
     return () => clearInterval(id);
   }, []);
+
+  // charState を debounce して表情のちらつきを防ぐ
+  // offline/error/success は即反映、それ以外は0.8秒安定してから切替
+  useEffect(() => {
+    const raw = connState !== 'connected' ? 'offline'
+      : isError    ? 'error'
+      : isDone     ? 'success'
+      : isThinking ? 'thinking'
+      : isWorking  ? 'working'
+      : 'idle';
+
+    const IMMEDIATE = ['offline', 'error', 'success'];
+    if (IMMEDIATE.includes(raw)) {
+      clearTimeout(charDebounceRef.current);
+      setDisplayCharState(raw);
+    } else {
+      clearTimeout(charDebounceRef.current);
+      charDebounceRef.current = setTimeout(() => setDisplayCharState(raw), 800);
+    }
+    return () => clearTimeout(charDebounceRef.current);
+  }, [connState, isError, isDone, isThinking, isWorking]);
 
   const panelRef = useRef(null);
   const terminalDivRef = useRef(null);
@@ -130,14 +153,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     } catch {}
   }, []);
 
-  const thinkingSetAtRef = useRef(0);
-
   const handleActivity = useCallback(() => {
-    // thinking 状態は最低1秒維持する
-    if (Date.now() - thinkingSetAtRef.current > 1000) {
-      setIsThinking(false);
-      clearTimeout(thinkingTimerRef.current);
-    }
+    // working のみ管理。thinking は handleOutput が管理する
 
     setIsWorking(true);
     clearTimeout(workingTimerRef.current);
@@ -325,12 +342,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
       {/* キャラクターエリア */}
       {(() => {
-        const charState = connState !== 'connected' ? 'offline'
-          : isError    ? 'error'
-          : isDone     ? 'success'
-          : isThinking ? 'thinking'
-          : isWorking  ? 'working'
-          : 'idle';
+        const charState = displayCharState;
         // idle/working は通常顔と交互に切替（通常顔が設定されている場合）
         const normalImg = settings.charImgNormal || null;
         const cycleToNormal = normalImg && charTick % 2 === 1;

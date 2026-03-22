@@ -7,13 +7,13 @@ import './PCLayout.css';
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
 
 const SKILLS = [
-  { label: '/commit',    cmd: '/commit\r',             desc: 'コミット作成' },
-  { label: 'git push',  cmd: 'git push\r',            desc: 'プッシュ' },
-  { label: 'git status',cmd: 'git status\r',          desc: '変更確認' },
-  { label: 'git diff',  cmd: 'git --no-pager diff\r', desc: '差分確認' },
-  { label: '/help',     cmd: '/help\r',               desc: 'ヘルプ' },
-  { label: '/add .',    cmd: '/add .\r',              desc: '全追加' },
-  { label: '/clear',    cmd: '/clear\r',              desc: 'リセット', confirm: '会話履歴をリセットしますか？' },
+  { label: '/commit',    cmd: '/commit\r',             desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
+  { label: 'git push',  cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
+  { label: 'git status',cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
+  { label: 'git diff',  cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
+  { label: '/help',     cmd: '/help\r',               desc: 'Claude Codeで使えるコマンド一覧を表示する' },
+  { label: '/add .',    cmd: '/add .\r',              desc: '全ファイルをコンテキストに追加する' },
+  { label: '/clear',    cmd: '/clear\r',              desc: 'AIとの会話履歴を全部消してリセットする', confirm: '会話履歴をリセットしますか？' },
 ];
 
 
@@ -24,15 +24,17 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const [autoYes, setAutoYes] = useState({});
   const [panelInput, setPanelInput] = useState({});
   const [panelHistory, setPanelHistory] = useState({});
-  const [isWorking,  setIsWorking]  = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-  const [isDone,     setIsDone]     = useState(false);
-  const [isError,    setIsError]    = useState(false);
-  const [charTick,   setCharTick]   = useState(0);
-  const workingTimerRef  = useRef(null);
-  const thinkingTimerRef = useRef(null);
-  const doneTimerRef     = useRef(null);
-  const errorTimerRef    = useRef(null);
+  const [isWorking,        setIsWorking]        = useState(false);
+  const [isThinking,       setIsThinking]       = useState(false);
+  const [isDone,           setIsDone]           = useState(false);
+  const [isError,          setIsError]          = useState(false);
+  const [charTick,         setCharTick]         = useState(0);
+  const [displayCharState, setDisplayCharState] = useState('idle');
+  const workingTimerRef   = useRef(null);
+  const thinkingTimerRef  = useRef(null);
+  const doneTimerRef      = useRef(null);
+  const errorTimerRef     = useRef(null);
+  const charDebounceRef   = useRef(null);
 
   // キャラ画像切替用タイマー（8秒ごと）
   useEffect(() => {
@@ -60,6 +62,25 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     return () => clearInterval(id);
   }, [isActive]);
 
+  // charState を debounce して表情のちらつきを防ぐ
+  useEffect(() => {
+    const raw = isError    ? 'error'
+      : isDone     ? 'success'
+      : isThinking ? 'thinking'
+      : isWorking  ? 'working'
+      : 'idle';
+
+    const IMMEDIATE = ['error', 'success'];
+    if (IMMEDIATE.includes(raw)) {
+      clearTimeout(charDebounceRef.current);
+      setDisplayCharState(raw);
+    } else {
+      clearTimeout(charDebounceRef.current);
+      charDebounceRef.current = setTimeout(() => setDisplayCharState(raw), 800);
+    }
+    return () => clearTimeout(charDebounceRef.current);
+  }, [isError, isDone, isThinking, isWorking]);
+
   // 初回: 既存セッションを最大4つ自動選択
   useEffect(() => {
     if (initializedRef.current || sessions.length === 0) return;
@@ -81,14 +102,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     );
   }, []);
 
-  const thinkingSetAtRef = useRef(0);
-
   const handleActivity = useCallback(() => {
-    // thinking 状態は handleOutput が管理するので、最低1秒は維持する
-    if (Date.now() - thinkingSetAtRef.current > 1000) {
-      setIsThinking(false);
-      clearTimeout(thinkingTimerRef.current);
-    }
+    // working のみ管理。thinking は handleOutput が管理する
     setIsWorking(true);
     clearTimeout(workingTimerRef.current);
     workingTimerRef.current = setTimeout(() => {
@@ -164,11 +179,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const rows = count === 4 ? 2 : 1;
 
   // キャラクター
-  const charState = isError    ? 'error'
-    : isDone     ? 'success'
-    : isThinking ? 'thinking'
-    : isWorking  ? 'working'
-    : 'idle';
+  const charState = displayCharState;
   const normalImg = settings.charImgNormal || null;
   const cycleToNormal = normalImg && charTick % 2 === 1;
   const charSrcMap = {

@@ -320,12 +320,14 @@
 .panel-skill {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 2px;
   padding: 5px 10px;
   border-radius: 6px;
   border-color: var(--border);
-  min-width: 68px;
+  min-width: 80px;
+  max-width: 160px;
+  text-align: left;
 }
 .panel-skill:hover { border-color: var(--accent); }
 
@@ -338,7 +340,8 @@
 .panel-skill-desc {
   font-size: 10px;
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.3;
 }
 
 .panel-input-row {
