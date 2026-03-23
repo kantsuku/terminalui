@@ -229,10 +229,28 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     setActiveSessions(prev => prev.map(n => n === old ? newName : n));
   }, [renaming, renameSession]);
 
-  // グリッドレイアウト
+  // グリッドレイアウト（常に横並び）
   const count = activeSessions.length;
-  const cols = count === 4 ? 2 : count || 1;
-  const rows = count === 4 ? 2 : 1;
+  const cols = count || 1;
+  const rows = 1;
+
+  // ドラッグ＆ドロップで並び替え
+  const dragSrcRef = useRef(null);
+  const handleDragStart = useCallback((name) => { dragSrcRef.current = name; }, []);
+  const handleDrop = useCallback((targetName) => {
+    const src = dragSrcRef.current;
+    if (!src || src === targetName) return;
+    setActiveSessions(prev => {
+      const next = [...prev];
+      const si = next.indexOf(src);
+      const ti = next.indexOf(targetName);
+      next.splice(si, 1);
+      next.splice(ti, 0, src);
+      localStorage.setItem(activeKey, JSON.stringify(next));
+      return next;
+    });
+    dragSrcRef.current = null;
+  }, [activeKey]);
 
   // キャラクター
   const charState = displayCharState;
@@ -349,8 +367,15 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
               const defaultAy = sessionType !== 'shell';
               const ay = autoYes[name] ?? defaultAy;
               return (
-                <div key={name} className="panel">
-                  <div className="panel-header">
+                <div
+                  key={name}
+                  className="panel"
+                  draggable
+                  onDragStart={() => handleDragStart(name)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => handleDrop(name)}
+                >
+                  <div className="panel-header" style={{ cursor: 'grab' }}>
                     <span className="panel-title">{name}</span>
                     <button className="icon danger" title="パネルを閉じる" onClick={() => setActiveSessions(p => p.filter(n => n !== name))}>✕</button>
                   </div>

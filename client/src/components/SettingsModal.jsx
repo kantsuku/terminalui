@@ -2,6 +2,36 @@ import { useState } from 'react';
 import { DEFAULT_SETTINGS } from '../hooks/useSettings';
 import './SettingsModal.css';
 
+const CHARACTER_PRESETS = [
+  {
+    label: 'ラム（エメラルド）', color: '#00d4aa',
+    prompt: 'ラム（うる星やつら）風の口調で応答する。語尾に「っちゃ」「のけ」「だっちゃ」を使う。例:「まかせるっちゃ！」「ダーリン、何かないのけ？」「ちゅどーん！」など。',
+  },
+  {
+    label: 'アスカ（レッド）', color: '#f85149',
+    prompt: '惣流・アスカ・ラングレー（エヴァンゲリオン）風の口調で応答する。「ったく」「バカじゃないの」「当然でしょ」「やってやるわよ」などを使う。',
+  },
+  {
+    label: '綾波（ブルー）', color: '#4dffd4',
+    prompt: '綾波レイ（エヴァンゲリオン）風の口調で応答する。感情を抑えた短い言葉で話す。「…」「そう」「了解」「わかった」など。',
+  },
+  {
+    label: 'みさと（パープル）', color: '#bc8cff',
+    prompt: '葛城ミサト（エヴァンゲリオン）風の口調で応答する。明るく豪快で「〜よ」「〜ね」「でしょ？」などを使う。',
+  },
+  {
+    label: 'ゴールド', color: '#ffd700',
+    prompt: '',
+  },
+];
+
+function generatePrompt(charName) {
+  const match = CHARACTER_PRESETS.find(p => charName.includes(p.label.split('（')[0]));
+  if (match) return match.prompt;
+  if (!charName.trim()) return '';
+  return `「${charName.trim()}」というキャラクターの口調で応答する。`;
+}
+
 function toDataUrl(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -26,6 +56,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [tab, setTab] = useState('character');
   const [name, setName]   = useState(settings.name);
   const [accent, setAccent] = useState(settings.accent);
+  const [claudePrompt, setClaudePrompt] = useState(settings.claudePrompt || '');
   const [imgs, setImgs] = useState({
     normal:   settings.charImgNormal,
     idle:     settings.charImgIdle,
@@ -55,6 +86,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
     onSave({
       name,
       accent,
+      claudePrompt,
       charImgNormal:   imgs.normal,
       charImgIdle:     imgs.idle,
       charImgWorking:  imgs.working,
@@ -76,6 +108,42 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
     if (!confirm('設定をリセットしますか？')) return;
     onReset();
     onClose();
+  };
+
+  const handleDownloadPrompts = () => {
+    const charName = name.trim() || 'キャラクター';
+    const base = `アニメ風イラスト、${charName}のキャラクター、白背景、全身または上半身、シンプルな線画カラーイラスト`;
+    const prompts = [
+      { label: '通常（normal）',     hint: 'normal standing pose, neutral expression, relaxed' },
+      { label: '待機中（idle）',     hint: 'slightly bored or waiting, casual pose, gentle smile' },
+      { label: '作業中（working）',  hint: 'focused and busy, determined expression, working hard' },
+      { label: '考え中（thinking）', hint: 'thinking pose, hand on chin, thoughtful expression, eyes looking up' },
+      { label: '完了（success）',    hint: 'happy and proud, big smile, celebratory pose, fist pump or peace sign' },
+      { label: 'エラー（error）',    hint: 'surprised or worried, sweat drop, apologetic expression' },
+      { label: 'オフライン（offline）', hint: 'sleeping or resting, eyes closed, zzz, peaceful' },
+    ];
+
+    const styleNote = 'テイスト・画風・色調・構図は一切変更せず、表情のみ変えてください。';
+    const text = [
+      `# ${charName} キャラクター画像生成プロンプト`,
+      `# Gemini / Imagen などの画像生成AIに使用してください`,
+      `# 各画像は 600x600px 程度の正方形を推奨`,
+      `# ※ 2枚目以降は1枚目の画像を参照しながら生成し、${styleNote}`,
+      '',
+      ...prompts.map(p => [
+        `## ${p.label}`,
+        `${base}, ${p.hint}。${styleNote}`,
+        '',
+      ].join('\n')),
+    ].join('\n');
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${charName}-image-prompts.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -102,7 +170,16 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
               <label className="sm-label">キャラクター名</label>
               <input className="sm-input" value={name} onChange={e => setName(e.target.value)} placeholder="例: ラムちゃん" />
 
-              <label className="sm-label" style={{ marginTop: 16 }}>キャラクター画像</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 }}>
+                <label className="sm-label" style={{ margin: 0 }}>Claude口調（Claudeセッション作成時に適用）</label>
+                <button className="sm-reset-lines" onClick={() => setClaudePrompt(generatePrompt(name))}>自動設定</button>
+              </div>
+              <textarea className="sm-textarea" rows={4} value={claudePrompt} onChange={e => setClaudePrompt(e.target.value)} placeholder="例: ラム（うる星やつら）風の口調で応答する。語尾に「っちゃ」を使う。" />
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 }}>
+                <label className="sm-label" style={{ margin: 0 }}>キャラクター画像</label>
+                <button className="sm-reset-lines" onClick={handleDownloadPrompts}>📥 画像プロンプト取得</button>
+              </div>
               <div className="sm-img-grid">
                 {[
                   { key: 'normal',   label: '通常' },
@@ -147,15 +224,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                 <div className="sm-color-preview" style={{ background: accent }} />
               </div>
               <div className="sm-color-presets">
-                {[
-                  { label: 'ラム（エメラルド）', color: '#00d4aa' },
-                  { label: 'アスカ（レッド）',   color: '#f85149' },
-                  { label: '綾波（ブルー）',       color: '#4dffd4' },
-                  { label: 'みさと（パープル）',   color: '#bc8cff' },
-                  { label: 'ゴールド',             color: '#ffd700' },
-                ].map(p => (
+                {CHARACTER_PRESETS.map(p => (
                   <button key={p.color} className="sm-preset" style={{ borderColor: p.color, color: p.color }}
-                    onClick={() => setAccent(p.color)}>
+                    onClick={() => { setAccent(p.color); if (p.prompt) setClaudePrompt(p.prompt); }}>
                     {p.label}
                   </button>
                 ))}

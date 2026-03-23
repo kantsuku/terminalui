@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSessions } from './hooks/useSessions';
-import { useSettings, loadSavedImages } from './hooks/useSettings';
+import { useSettings } from './hooks/useSettings';
 import PCLayout from './components/PCLayout';
 import MobileLayout from './components/MobileLayout';
 import SettingsModal from './components/SettingsModal';
@@ -105,15 +105,12 @@ function AppMain({ userName }) {
   const [viewportMobile, setViewportMobile] = useState(() => window.innerWidth < 1024);
   const [showSettings, setShowSettings] = useState(false);
   const sessionHook = useSessions();
-  const { settings: baseSettings, save, reset } = useSettings();
+  const { settings: baseSettings, save, reset } = useSettings(userName);
 
-  const [settings, setSettings] = useState(() => ({
-    ...baseSettings,
-    ...loadSavedImages(),
-  }));
+  const [settings, setSettings] = useState(() => baseSettings);
 
   useEffect(() => {
-    setSettings({ ...baseSettings, ...loadSavedImages() });
+    setSettings(baseSettings);
   }, [baseSettings]);
 
   useEffect(() => {
@@ -140,7 +137,6 @@ function AppMain({ userName }) {
 
   const handleReset = () => {
     reset();
-    setSettings({ ...loadSavedImages() });
   };
 
   const layoutProps = {

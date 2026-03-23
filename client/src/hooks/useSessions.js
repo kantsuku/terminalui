@@ -32,13 +32,13 @@ export function useSessions() {
     return stopPolling;
   }, [fetchSessions, startPolling, stopPolling]);
 
-  const createSession = useCallback(async ({ name, type = 'shell' }) => {
+  const createSession = useCallback(async ({ name, type = 'shell', systemPrompt }) => {
     setLoading(true);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type }),
+        body: JSON.stringify({ name, type, systemPrompt }),
       });
       const data = await res.json();
       await fetchSessions();

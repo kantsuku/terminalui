@@ -43,7 +43,7 @@ function authMiddleware(req, res, next) {
   next();
 }
 
-const UPLOAD_DIR = path.join(os.homedir(), 'Desktop', 'uploads');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 // 初回セットアップ: 必要なディレクトリを自動作成
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const upload = multer({
@@ -70,7 +70,7 @@ const keepAlive = setInterval(() => {
 }, 30000);
 wss.on('close', () => clearInterval(keepAlive));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(authMiddleware);
 
 // Serve built client in production
@@ -89,12 +89,55 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
+// ── ユーザー設定の永続化 ───────────────────────────────────────────────────────
+// user-settings/ はプロジェクト内に置いてバックアップしやすくする（gitignore済み）
+const SETTINGS_DIR = process.env.SETTINGS_DIR || path.join(__dirname, 'user-settings');
+fs.mkdirSync(SETTINGS_DIR, { recursive: true });
+
+// 旧 ~/.termui-settings/ から自動マイグレーション
+(function migrateOldSettings() {
+  const oldDir = path.join(os.homedir(), '.termui-settings');
+  try {
+    if (!fs.existsSync(oldDir)) return;
+    for (const f of fs.readdirSync(oldDir)) {
+      const src = path.join(oldDir, f);
+      const dst = path.join(SETTINGS_DIR, f);
+      if (!fs.existsSync(dst)) {
+        fs.copyFileSync(src, dst);
+        console.log(`[Migration] ${f} を user-settings/ に移行`);
+      }
+    }
+  } catch (e) {
+    console.warn('[Migration] 失敗:', e.message);
+  }
+})();
+
+function settingsPath(userName) {
+  const safe = userName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return path.join(SETTINGS_DIR, `${safe}.json`);
+}
+
 // ── REST API ──────────────────────────────────────────────────────────────────
 
 // Upload image → save to ~/Desktop/uploads/ → return file path
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file' });
   res.json({ path: req.file.path });
+});
+
+app.get('/api/user-settings/:userName', (req, res) => {
+  try {
+    const p = settingsPath(req.params.userName);
+    if (!fs.existsSync(p)) return res.json(null);
+    res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
+  } catch { res.json(null); }
+});
+
+app.post('/api/user-settings/:userName', (req, res) => {
+  try {
+    fs.writeFileSync(settingsPath(req.params.userName), JSON.stringify(req.body));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/error-report', (req, res) => {
@@ -139,10 +182,10 @@ app.get('/api/sessions', async (req, res) => {
 // Create a regular session or a Claude Code session
 // body: { name?: string, type?: 'shell' | 'claude' }
 app.post('/api/sessions', async (req, res) => {
-  const { name, type } = req.body;
+  const { name, type, systemPrompt } = req.body;
   try {
     const command = type === 'claude' ? 'claude' : undefined;
-    const sessionName = await createSession(name, command);
+    const sessionName = await createSession(name, command, systemPrompt);
     res.json({ ok: true, name: sessionName });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -203,6 +246,7 @@ wss.on('connection', (ws, req) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
   let session = null; // { proc, write, resize, kill, setAutoYes }
+  let autoYesEnabled = false; // attach前に届いたautoyes状態をバッファ
 
   ws.on('message', (raw) => {
     let msg;
@@ -221,6 +265,7 @@ wss.on('connection', (ws, req) => {
             return;
           }
           session = attachSession(msg.session, ws, msg.cols || 80, msg.rows || 24);
+          if (autoYesEnabled) session.setAutoYes(true);
         });
         break;
       }
@@ -234,8 +279,9 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'autoyes': {
-        if (session) session.setAutoYes(!!msg.enabled);
-        ws.send(JSON.stringify({ type: 'autoyes', enabled: !!msg.enabled }));
+        autoYesEnabled = !!msg.enabled;
+        if (session) session.setAutoYes(autoYesEnabled);
+        ws.send(JSON.stringify({ type: 'autoyes', enabled: autoYesEnabled }));
         break;
       }
     }

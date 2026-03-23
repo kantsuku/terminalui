@@ -452,6 +452,73 @@
   -webkit-user-select: none;
 }
 
+/* ══ スキルポップアップ ══════════════════════════════════════════════════════ */
+.ml-skills-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0,0,0,0.4);
+}
+
+.ml-skills-popup {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg2);
+  border-top: 2px solid var(--accent);
+  border-radius: 16px 16px 0 0;
+  padding: 8px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ml-skills-popup-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.ml-skills-popup-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.ml-skills-popup-item--active {
+  background: #0a2018;
+  border-color: var(--accent);
+}
+
+.ml-skills-popup-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.ml-skills-popup-item--active .ml-skills-popup-label {
+  color: var(--text);
+}
+
+.ml-skills-popup-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ml-skills-popup-item--active .ml-skills-popup-desc {
+  color: var(--accent);
+}
+
 /* ══ ドロワー ════════════════════════════════════════════════════════════════ */
 .ml-backdrop {
   position: fixed;

@@ -27,3 +27,8 @@
 .terminal-container .xterm-screen canvas {
   pointer-events: none;
 }
+
+/* mobile: xterm内部のtextareaを無効化してキーボードが出ないようにする */
+.terminal-container--mobile .xterm-helper-textarea {
+  display: none !important;
+}

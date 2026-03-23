@@ -5,6 +5,17 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalPanel.css';
 
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
 const TERM_THEME = {
   background:   '#0a0f0d',
   foreground:   '#e6edf3',
@@ -38,10 +49,12 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   const wsRef = useRef(null);
   const connectRef = useRef(null);
   const clientAutoEnterRef = useRef(false);
-  const onOutputRef = useRef(onOutput);
-  const onInputRef = useRef(onInput);
-  onOutputRef.current = onOutput;
-  onInputRef.current = onInput;
+  const onOutputRef   = useRef(onOutput);
+  const onInputRef    = useRef(onInput);
+  const onActivityRef = useRef(onActivity);
+  onOutputRef.current   = onOutput;
+  onInputRef.current    = onInput;
+  onActivityRef.current = onActivity;
   const [connState, setConnState] = useState('disconnected');
 
 
@@ -77,14 +90,31 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       vp.dispatchEvent(new Event('scroll'));
     },
     copySelection() {
-      const sel = termRef.current?.getSelection();
-      if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+      const term = termRef.current;
+      if (!term) return;
+      // 選択テキストがあればそれを、なければ画面の表示内容をコピー
+      let text = term.getSelection();
+      if (!text) {
+        const buf = term.buffer.active;
+        const lines = [];
+        for (let i = 0; i < buf.length; i++) {
+          lines.push(buf.getLine(i)?.translateToString(true) ?? '');
+        }
+        text = lines.join('\n').trimEnd();
+      }
+      if (!text) return;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
     },
     scrollBy(dy) {
-      const vp = containerRef.current?.querySelector('.xterm-viewport');
-      if (!vp) return;
-      vp.scrollTop -= dy;
-      vp.dispatchEvent(new Event('scroll'));
+      const term = termRef.current;
+      if (!term) return;
+      const lineHeight = term._core?._renderService?.dimensions?.css?.cell?.height ?? 20;
+      const lines = Math.round(dy / lineHeight);
+      if (lines !== 0) term.scrollLines(lines);
     },
     fitAddon: () => fitRef.current,
     reconnect() {
@@ -98,7 +128,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
     const term = new Terminal({
       theme: TERM_THEME,
-      fontSize: mobile ? 13 : 14,
+      fontSize: mobile ? 13 : 12,
       fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", monospace',
       lineHeight: 1.2,
       cursorBlink: !mobile,
@@ -147,7 +177,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         switch (msg.type) {
           case 'output':
             term.write(msg.data, Date.now() < autoScrollUntil ? () => term.scrollToBottom() : undefined);
-            onActivity?.();
+            onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
             if (clientAutoEnterRef.current) {
               clearTimeout(clientAutoEnterTimer);
@@ -228,7 +258,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
           ● {connState}
         </div>
       )}
-      <div ref={containerRef} className="terminal-container" />
+      <div ref={containerRef} className={`terminal-container${mobile ? ' terminal-container--mobile' : ''}`} />
     </div>
   );
 });

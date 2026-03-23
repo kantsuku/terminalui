@@ -52,6 +52,9 @@ AUTO_SESSIONS="myshell:shell,ai:claude" nohup node server.js > /tmp/terminal-ui.
 ```
 terminal-ui/
 ├── server.js          # Express + WebSocket サーバー
+├── setup.sh           # 新環境セットアップ（npm install/build/launchd登録）
+├── user-settings/     # ユーザー設定JSON（gitignore済み・バックアップ推奨）
+├── uploads/           # アップロード画像（gitignore済み）
 ├── lib/
 │   ├── tmux.js        # tmuxセッション管理（list/create/kill/rename）
 │   └── ptyManager.js  # node-pty でtmuxにアタッチ、自動Enter機能
@@ -59,15 +62,25 @@ terminal-ui/
 │   ├── src/
 │   │   ├── App.jsx                        # モバイル/PC自動判定
 │   │   ├── hooks/useSessions.js           # セッション一覧ポーリング（3秒）
+│   │   ├── hooks/useSettings.js           # キャラ設定（サーバー同期）
 │   │   └── components/
 │   │       ├── TerminalPanel.jsx          # xterm.js + WebSocket（自動再接続付き）
 │   │       ├── MobileLayout.jsx           # スマホUI
 │   │       ├── MobileLayout.css
 │   │       ├── PCLayout.jsx               # PC UI（複数パネル）
+│   │       ├── SettingsModal.jsx          # キャラ設定モーダル
 │   │       └── NewSessionModal.jsx / RenameModal.jsx
 │   └── vite.config.js  # /api, /ws → localhost:3001 にプロキシ
 └── CLAUDE.md
 ```
+
+## データの永続化と移行
+- **ユーザー設定**（キャラ名/画像/セリフ等）: `user-settings/{userName}.json` に保存
+  - 環境変数 `SETTINGS_DIR` で変更可（デフォルト: プロジェクト内 `user-settings/`）
+  - 旧環境の `~/.termui-settings/` は `setup.sh` 実行時に自動移行
+- **アップロード画像**: `uploads/` に保存
+  - 環境変数 `UPLOAD_DIR` で変更可（デフォルト: プロジェクト内 `uploads/`）
+- どちらも gitignore 済みなので別途バックアップ推奨っちゃ
 
 ## 重要な実装メモ
 

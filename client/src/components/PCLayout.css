@@ -307,35 +307,41 @@
 }
 
 /* ══ パネル下部: スキル & 入力 ══════════════════════════════════════════════ */
-.panel-skills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 8px;
-  background: var(--bg3);
-  border-top: 2px solid var(--border);
-  flex-shrink: 0;
-}
-
-.panel-skill {
+.panel-skills-popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  background: var(--bg2);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border-color: var(--border);
-  min-width: 80px;
-  max-width: 160px;
-  text-align: left;
+  gap: 3px;
+  min-width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
-.panel-skill:hover { border-color: var(--accent); }
+
+.panel-skills-popup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+}
+.panel-skills-popup-item:hover { border-color: var(--accent); }
 
 .panel-skill-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--accent);
   white-space: nowrap;
+  min-width: 64px;
 }
 .panel-skill-desc {
   font-size: 10px;
@@ -346,8 +352,8 @@
 
 .panel-input-row {
   display: flex;
-  gap: 6px;
-  padding: 6px 8px 8px;
+  gap: 4px;
+  padding: 4px 6px 6px;
   background: var(--bg3);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
@@ -356,20 +362,27 @@
 .panel-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
+  gap: 4px;
+  padding: 3px 6px;
   background: var(--bg3);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
+.panel-controls button.icon {
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: 22px;
+  height: 22px;
+}
+
 .panel-ctrl-big {
-  font-size: 13px;
-  font-weight: 800;
-  padding: 5px 18px;
-  height: 34px;
-  border-radius: 8px;
-  border: 2px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
   color: var(--text-muted);
 }
 .panel-ctrl-big.active {
@@ -380,14 +393,14 @@
 .panel-ctrl-yes {
   border-color: var(--accent);
   color: #000;
-  min-width: 64px;
+  min-width: 48px;
 }
 
 .panel-input {
   flex: 1;
-  height: 200px;
-  font-size: 13px;
-  padding: 8px 10px;
+  height: 100px;
+  font-size: 12px;
+  padding: 5px 8px;
   resize: none;
   line-height: 1.5;
 }
@@ -395,7 +408,7 @@
 .panel-send-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .panel-attach {
@@ -403,9 +416,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 36px;
-  font-size: 18px;
+  width: 34px;
+  height: 28px;
+  font-size: 14px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: var(--radius);

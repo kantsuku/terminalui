@@ -22,7 +22,15 @@ npm run build
 
 # 3. 必要ディレクトリ作成
 echo "[3/5] ディレクトリ作成..."
-mkdir -p ~/Desktop/uploads
+mkdir -p "$SCRIPT_DIR/user-settings"
+mkdir -p "$SCRIPT_DIR/uploads"
+
+# 旧 ~/.termui-settings/ から移行（存在する場合）
+if [ -d "$HOME/.termui-settings" ] && [ "$(ls -A "$HOME/.termui-settings" 2>/dev/null)" ]; then
+  echo "  旧設定 (~/.termui-settings/) を user-settings/ に移行するっちゃ..."
+  cp -n "$HOME/.termui-settings/"* "$SCRIPT_DIR/user-settings/" 2>/dev/null || true
+  echo "  移行完了（元ファイルは ~/.termui-settings/ に残しておくっちゃ）"
+fi
 
 # 4. tmux 確認
 echo "[4/5] tmux 確認..."
