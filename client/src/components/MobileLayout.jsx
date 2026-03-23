@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
@@ -7,7 +8,7 @@ import './MobileLayout.css';
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
 
 const SKILLS = [
-  { label: '/commit',    cmd: '/commit\r',             desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
+  { label: '/commit',    cmd: 'コミットして\r',          desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
   { label: 'git push',   cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
   { label: 'git status', cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
   { label: 'git diff',   cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
@@ -29,12 +30,16 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [renaming, setRenaming] = useState(null);
   const [inputText, setInputText] = useState('');
   const [connState, setConnState] = useState('disconnected');
-  const autoEnterKey = `termui-auto-enter-${userName}`;
-  const [autoEnter, setAutoEnter] = useState(() => localStorage.getItem(`termui-auto-enter-${userName}`) === 'true');
+  const autoEnterKey = `termui-auto-enter-v2-${userName}`;
+  const [autoEnter, setAutoEnter] = useState(() => {
+    const stored = localStorage.getItem(`termui-auto-enter-v2-${userName}`);
+    return stored === null ? true : stored === 'true';
+  });
   const [history, setHistory] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
   const inputHistoryIdxRef = useRef(-1);
   const [activeSkill, setActiveSkill] = useState(null);
+  const [showSkillsPopup, setShowSkillsPopup] = useState(false);
   const [isWorking,        setIsWorking]        = useState(false);
   const [isThinking,       setIsThinking]       = useState(false);
   const [isDone,           setIsDone]           = useState(false);
@@ -46,6 +51,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const doneTimerRef      = useRef(null);
   const errorTimerRef     = useRef(null);
   const charDebounceRef   = useRef(null);
+  const thinkingSetAtRef  = useRef(null);
 
   // キャラ画像切替用タイマー（8秒ごと）
   useEffect(() => {
@@ -74,6 +80,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     return () => clearTimeout(charDebounceRef.current);
   }, [connState, isError, isDone, isThinking, isWorking]);
 
+
   const panelRef = useRef(null);
   const terminalDivRef = useRef(null);
 
@@ -85,9 +92,12 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     el.addEventListener('wheel', handler, { passive: true });
     return () => el.removeEventListener('wheel', handler);
   }, []);
+
   const textareaRef = useRef(null);
 
   const activeSession = sessions[activeIdx] || null;
+  const activeSessionRef = useRef(null);
+  activeSessionRef.current = activeSession;
 
   const openHistory = useCallback(async () => {
     if (!activeSession) return;
@@ -116,6 +126,23 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       setActiveIdx(sessions.length - 1);
     }
   }, [sessions.length, activeIdx]);
+
+  // セッション切替時に表情・状態をリセット＆自動ENTERをセッションtypeに合わせる
+  useEffect(() => {
+    setIsWorking(false);
+    setIsThinking(false);
+    setIsDone(false);
+    setIsError(false);
+    clearTimeout(workingTimerRef.current);
+    clearTimeout(thinkingTimerRef.current);
+    clearTimeout(doneTimerRef.current);
+    clearTimeout(errorTimerRef.current);
+    const sessionType = sessions[activeIdx]?.type;
+    const stored = localStorage.getItem(autoEnterKey);
+    if (stored === null) {
+      setAutoEnter(sessionType !== 'shell');
+    }
+  }, [activeIdx]);
 
   // 接続完了時に autoEnter 状態をサーバー＆クライアントへ再送
   useEffect(() => {
@@ -162,7 +189,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       setIsWorking(prev => {
         if (prev) {
           playDoneSound();
-          notify('⚡ ちゅどーん！できたっちゃ！', `${activeSession?.name || 'セッション'} うち、やりとげたっちゃよ！`);
+          notify('⚡ ちゅどーん！できたっちゃ！', `${activeSessionRef.current?.name || 'セッション'} うち、やりとげたっちゃよ！`);
           setIsDone(true);
           clearTimeout(doneTimerRef.current);
           doneTimerRef.current = setTimeout(() => setIsDone(false), 3000);
@@ -225,13 +252,14 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const handleCreate = useCallback(async ({ name, type }) => {
     setShowNewModal(false);
     setShowDrawer(false);
-    const res = await createSession({ name, type });
+    const systemPrompt = type === 'claude' ? settings.claudePrompt : undefined;
+    const res = await createSession({ name, type, systemPrompt });
     if (res?.name) {
       const updated = await fetchSessions();
       const idx = updated.findIndex(s => s.name === res.name);
       setActiveIdx(idx !== -1 ? idx : 0);
     }
-  }, [createSession, fetchSessions]);
+  }, [createSession, fetchSessions, settings.claudePrompt]);
 
   const handleKill = useCallback(async (name) => {
     if (!confirm(`"${name}" を終了しますか？`)) return;
@@ -259,7 +287,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     if (t.dir === 'v') {
       const delta = t.prevY - e.touches[0].clientY;
       t.prevY = e.touches[0].clientY;
-      panelRef.current?.scrollBy(delta);
+      panelRef.current?.scrollBy(-delta);
     }
   };
   const onTouchEnd = (e) => {
@@ -282,10 +310,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const update = () => {
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
       document.documentElement.style.setProperty('--vvo', `${vv.offsetTop}px`);
-      // キーボードが出たら入力エリアを画面内に収める
-      if (inputAreaRef.current) {
-        inputAreaRef.current.style.transform = `translateY(${vv.offsetTop}px)`;
-      }
     };
     update();
     vv.addEventListener('resize', update);
@@ -306,6 +330,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   }[connState] || { label: connState, cls: 'warn' };
 
   return (
+    <>
     <div className="ml-root" style={{ position: 'relative' }}>
 
       {/* ヘッダー */}
@@ -347,13 +372,14 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         // idle/working は通常顔と交互に切替（通常顔が設定されている場合）
         const normalImg = settings.charImgNormal || null;
         const cycleToNormal = normalImg && charTick % 2 === 1;
+        const fallback = normalImg || settings.charImgIdle || null;
         const charSrcMap = {
-          offline:  settings.charImgOffline  || '/character-offline.png',
-          error:    settings.charImgError    || '/character-error.png',
-          success:  settings.charImgSuccess  || '/character-success.png',
-          thinking: settings.charImgThinking || '/character-thinking.png',
-          working:  cycleToNormal ? normalImg : (settings.charImgWorking  || '/character-working.png'),
-          idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || '/character-idle.png'),
+          offline:  settings.charImgOffline  || fallback,
+          error:    settings.charImgError    || fallback,
+          success:  settings.charImgSuccess  || fallback,
+          thinking: settings.charImgThinking || fallback,
+          working:  cycleToNormal ? normalImg : (settings.charImgWorking  || fallback),
+          idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || fallback),
         };
         const linesMap = {
           offline:  settings.offlineLines  || [],
@@ -368,6 +394,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         const lines = linesMap[charState];
         const iv    = intervalMap[charState];
         const speech = lines.length ? lines[Math.floor(Date.now() / iv) % lines.length] : '';
+        if (!src) return null;
         return (
           <div className={`ml-character ml-character--${charState}`}>
             <img
@@ -375,7 +402,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               src={src}
               alt=""
               className="ml-character-img"
-              onError={e => { e.target.src = '/character.png'; e.target.onerror = null; }}
+              onError={e => { e.target.style.display = 'none'; }}
             />
             <div className="ml-character-bubble">{speech}</div>
           </div>
@@ -423,21 +450,22 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       </div>
 
 
-      {/* 入力エリア */}
-      {activeSession && (
-        <div className="ml-input-area" ref={inputAreaRef}>
-          {/* スキル行 */}
-          <div className="ml-skills" onPointerDown={e => { if (e.currentTarget === e.target) setActiveSkill(null); }}>
+      {/* スキルポップアップ */}
+      {showSkillsPopup && (
+        <div className="ml-skills-backdrop" onPointerDown={() => { setShowSkillsPopup(false); setActiveSkill(null); }}>
+          <div className="ml-skills-popup" onPointerDown={e => e.stopPropagation()}>
+            <div className="ml-skills-popup-title">スキル</div>
             {SKILLS.map(s => {
               const isActive = activeSkill?.label === s.label;
               return (
                 <button
                   key={s.label}
-                  className={`ml-skill ${isActive ? 'ml-skill--active' : ''}`}
+                  className={`ml-skills-popup-item ${isActive ? 'ml-skills-popup-item--active' : ''}`}
                   onPointerDown={e => {
                     e.preventDefault();
                     if (isActive) {
                       setActiveSkill(null);
+                      setShowSkillsPopup(false);
                       if (s.confirm && !window.confirm(s.confirm)) return;
                       sendKey(s.cmd);
                     } else {
@@ -445,14 +473,24 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                     }
                   }}
                 >
-                  <span className="ml-skill-label">{isActive ? s.desc : s.label}</span>
-                  <span className="ml-skill-desc">{isActive ? '↓ もう一度タップ' : s.desc}</span>
+                  <span className="ml-skills-popup-label">{s.label}</span>
+                  <span className="ml-skills-popup-desc">{isActive ? '↓ もう一度タップで実行' : s.desc}</span>
                 </button>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* 入力エリア */}
+      {activeSession && (
+        <div className="ml-input-area" ref={inputAreaRef}>
           {/* キー行 */}
           <div className="ml-keys-row">
+            <button
+              className="ml-key ml-key--sm"
+              onPointerDown={e => { e.preventDefault(); setShowSkillsPopup(v => !v); setActiveSkill(null); }}
+            >⚡</button>
             {KEYS.map(k => (
               <button key={k.label} className="ml-key ml-key--sm" onClick={() => {
                 if (k.data === '\x1b[A') {
@@ -517,19 +555,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         </div>
       )}
 
-      {/* 履歴オーバーレイ */}
-      {history !== null && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#0d1117', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid #30363d', flexShrink: 0 }}>
-            <span style={{ color: '#e6edf3', fontWeight: 700 }}>履歴</span>
-            <button style={{ background: 'transparent', border: 'none', color: '#e6edf3', fontSize: 20, padding: '4px 8px' }} onPointerDown={e => { e.preventDefault(); setHistory(null); }}>✕</button>
-          </div>
-          <pre ref={el => { if (el) el.scrollTop = el.scrollHeight; }} style={{ flex: 1, overflow: 'auto', margin: 0, padding: '12px', color: '#e6edf3', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            {history}
-          </pre>
-        </div>
-      )}
-
       {/* ドロワー */}
       {showDrawer && (
         <div className="ml-backdrop" onPointerDown={() => setShowDrawer(false)}>
@@ -569,5 +594,22 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       {showNewModal && <NewSessionModal onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
       {renaming && <RenameModal currentName={renaming.name} onConfirm={handleRename} onCancel={() => setRenaming(null)} />}
     </div>
+
+    {/* 履歴: document.body に portal → position:fixed 祖先の iOS スクロールバグを回避 */}
+    {!!history && createPortal(
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: '#0d1117', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderBottom: '1px solid #30363d' }}>
+          <span style={{ color: '#e6edf3', fontWeight: 700, fontSize: 13 }}>履歴</span>
+          <button style={{ background: 'transparent', border: 'none', color: '#e6edf3', fontSize: 20, padding: '4px 8px', cursor: 'pointer' }} onClick={() => setHistory(null)}>✕</button>
+        </div>
+        <div style={{ height: 'calc(var(--vvh, 100dvh) - 44px)', overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}>
+          <pre style={{ margin: 0, padding: '12px', color: '#e6edf3', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'hidden' }}>
+            {history}
+          </pre>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

@@ -8,7 +8,7 @@ import './PCLayout.css';
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
 
 const SKILLS = [
-  { label: '/commit',    cmd: '/commit\r',             desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
+  { label: '/commit',    cmd: 'コミットして\r',          desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
   { label: 'git push',  cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
   { label: 'git status',cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
   { label: 'git diff',  cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
@@ -30,6 +30,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const [showQR, setShowQR] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [autoYes, setAutoYes] = useState({});
+  const [skillsPopupFor, setSkillsPopupFor] = useState(null);
   const [panelInput, setPanelInput] = useState({});
   const [panelHistory, setPanelHistory] = useState({});
   const [isWorking,        setIsWorking]        = useState(false);
@@ -104,10 +105,15 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     }
   }, [sessions, activeKey]);
 
-  // セッションが消えたら active からも除去
+  // セッションが消えたら除去、新セッションは空きがあれば自動追加
   useEffect(() => {
     const names = new Set(sessions.map(s => s.name));
-    setActiveSessions(prev => prev.filter(n => names.has(n)));
+    setActiveSessions(prev => {
+      const filtered = prev.filter(n => names.has(n));
+      const existing = new Set(filtered);
+      const toAdd = sessions.filter(s => !existing.has(s.name)).map(s => s.name).slice(0, 4 - filtered.length);
+      return [...filtered, ...toAdd];
+    });
   }, [sessions]);
 
   const toggleSession = useCallback((name) => {
@@ -118,6 +124,37 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     );
   }, []);
 
+  const notify = useCallback((title, body) => {
+    if (document.visibilityState === 'visible') return;
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/character.png' });
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') new Notification(title, { body, icon: '/character.png' });
+      });
+    }
+  }, []);
+
+  const playDoneSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 150, 300].forEach((delay, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = [880, 1108, 1320][i];
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + delay / 1000);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay / 1000 + 0.3);
+        osc.start(ctx.currentTime + delay / 1000);
+        osc.stop(ctx.currentTime + delay / 1000 + 0.3);
+      });
+    } catch {}
+  }, []);
+
+  const activeSessionNamesRef = useRef(activeSessions);
+  activeSessionNamesRef.current = activeSessions;
+
   const handleActivity = useCallback(() => {
     // working のみ管理。thinking は handleOutput が管理する
     setIsWorking(true);
@@ -125,6 +162,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     workingTimerRef.current = setTimeout(() => {
       setIsWorking(prev => {
         if (prev) {
+          playDoneSound();
+          notify('⚡ ちゅどーん！できたっちゃ！', `${activeSessionNamesRef.current.join(', ')} うち、やりとげたっちゃよ！`);
           setIsDone(true);
           clearTimeout(doneTimerRef.current);
           doneTimerRef.current = setTimeout(() => setIsDone(false), 3000);
@@ -132,7 +171,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         return false;
       });
     }, 2000);
-  }, []);
+  }, [playDoneSound, notify]);
 
   const THINKING_RE = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒]|[Tt]hinking/;
 
@@ -170,12 +209,13 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
 
   const handleCreate = useCallback(async ({ name, type }) => {
     setShowNewModal(false);
-    const res = await createSession({ name, type });
+    const systemPrompt = type === 'claude' ? settings.claudePrompt : undefined;
+    const res = await createSession({ name, type, systemPrompt });
     if (res?.name) {
       await fetchSessions();
       setActiveSessions(prev => prev.length < 4 ? [...prev, res.name] : prev);
     }
-  }, [createSession, fetchSessions]);
+  }, [createSession, fetchSessions, settings.claudePrompt]);
 
   const handleKill = useCallback(async (name) => {
     if (!confirm(`"${name}" を終了しますか？`)) return;
@@ -198,12 +238,13 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const charState = displayCharState;
   const normalImg = settings.charImgNormal || null;
   const cycleToNormal = normalImg && charTick % 2 === 1;
+  const fallback = normalImg || settings.charImgIdle || null;
   const charSrcMap = {
-    error:    settings.charImgError    || '/character-error.png',
-    success:  settings.charImgSuccess  || '/character-success.png',
-    thinking: settings.charImgThinking || '/character-thinking.png',
-    working:  cycleToNormal ? normalImg : (settings.charImgWorking  || '/character-working.png'),
-    idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || '/character-idle.png'),
+    error:    settings.charImgError    || fallback,
+    success:  settings.charImgSuccess  || fallback,
+    thinking: settings.charImgThinking || fallback,
+    working:  cycleToNormal ? normalImg : (settings.charImgWorking  || fallback),
+    idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || fallback),
   };
   const linesMap = {
     error:    settings.errorLines    || [],
@@ -304,7 +345,9 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
             }}
           >
             {activeSessions.map(name => {
-              const ay = autoYes[name] ?? false;
+              const sessionType = sessions.find(s => s.name === name)?.type;
+              const defaultAy = sessionType !== 'shell';
+              const ay = autoYes[name] ?? defaultAy;
               return (
                 <div key={name} className="panel">
                   <div className="panel-header">
@@ -321,31 +364,35 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       onInput={handleInput}
                       onConnStateChange={state => {
                         if (state === 'connected') {
-                          const enabled = autoYes[name] ?? true;
+                          const sType = sessions.find(s => s.name === name)?.type;
+                          const enabled = autoYes[name] ?? (sType !== 'shell');
                           panelRefs.current[name]?.setAutoYes(enabled);
                           panelRefs.current[name]?.setClientAutoEnter(enabled);
                         }
                       }}
                     />
                   </div>
-                  {/* スキル行 */}
-                  <div className="panel-skills">
-                    {SKILLS.map(sk => (
-                      <button
-                        key={sk.label}
-                        className="panel-skill"
-                        onClick={() => {
-                          if (sk.confirm && !window.confirm(sk.confirm)) return;
-                          panelRefs.current[name]?.sendInput(sk.cmd);
-                        }}
-                      >
-                        <span className="panel-skill-label">{sk.label}</span>
-                        <span className="panel-skill-desc">{sk.desc}</span>
-                      </button>
-                    ))}
-                  </div>
                   {/* コントロール行 */}
-                  <div className="panel-controls">
+                  <div className="panel-controls" style={{ position: 'relative' }}>
+                    <button className="icon" title="スキル" onClick={() => setSkillsPopupFor(v => v === name ? null : name)}>⚡</button>
+                    {skillsPopupFor === name && (
+                      <div className="panel-skills-popup">
+                        {SKILLS.map(sk => (
+                          <button
+                            key={sk.label}
+                            className="panel-skills-popup-item"
+                            onClick={() => {
+                              setSkillsPopupFor(null);
+                              if (sk.confirm && !window.confirm(sk.confirm)) return;
+                              panelRefs.current[name]?.sendInput(sk.cmd);
+                            }}
+                          >
+                            <span className="panel-skill-label">{sk.label}</span>
+                            <span className="panel-skill-desc">{sk.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <button className="icon" onClick={() => panelRefs.current[name]?.sendKey('\x03')}>C-c</button>
                     <button className="icon" onClick={() => panelRefs.current[name]?.copySelection()}>コピー</button>
                     <button className="icon" onClick={async () => {
@@ -437,7 +484,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                 <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent)' }}>履歴 — {sName}</span>
                 <button className="icon" onClick={() => setPanelHistory(p => ({ ...p, [sName]: null }))}>✕</button>
               </div>
-              <pre ref={el => { if (el) el.scrollTop = el.scrollHeight; }} style={{ flex: 1, overflow: 'auto', margin: 0, color: 'var(--text)', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <pre ref={el => { if (el && !el.dataset.scrolled) { el.scrollTop = el.scrollHeight; el.dataset.scrolled = 'true'; } }} style={{ flex: 1, overflow: 'auto', margin: 0, color: 'var(--text)', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                 {content}
               </pre>
             </div>
