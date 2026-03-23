@@ -20,7 +20,6 @@ const KEYS = [
   { label: '↑', data: '\x1b[A' },
   { label: '↓', data: '\x1b[B' },
   { label: '中断', data: '\x03' },
-  { label: 'C-d', data: '\x04' },
 ];
 
 export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, userName = 'default' }) {
@@ -341,9 +340,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       {/* ヘッダー */}
       <header className="ml-header">
         <button className="ml-hbtn" onPointerDown={() => setShowDrawer(true)}>☰</button>
-        <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onSwitchMode(); }} title="PC版に切替">🖥</button>
-        <button className="ml-hbtn" onPointerDown={e => { e.preventDefault(); onOpenSettings?.(); }} title="設定">⚙</button>
-        {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)', padding: '0 4px', flexShrink: 0 }}>@{userName}</span>}
         <div className="ml-tabs">
           {sessions.map((s, i) => {
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;
@@ -493,9 +489,9 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
           {/* キー行 */}
           <div className="ml-keys-row">
             <button
-              className="ml-key ml-key--sm"
+              className="ml-key ml-key--sm ml-key--skills"
               onPointerDown={e => { e.preventDefault(); setShowSkillsPopup(v => !v); setActiveSkill(null); }}
-            >⚡</button>
+            >⚡️</button>
             {KEYS.map(k => (
               <button key={k.label} className="ml-key ml-key--sm" onClick={() => {
                 if (k.data === '\x1b[A') {
@@ -591,6 +587,15 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               <button className="primary" style={{ width: '100%' }} onPointerDown={() => { setShowDrawer(false); setShowNewModal(true); }}>
                 ＋ 新規セッション
               </button>
+              <button style={{ width: '100%', marginTop: 8 }} onPointerDown={e => { e.preventDefault(); setShowDrawer(false); onOpenSettings?.(); }}>
+                ⚙ 設定
+              </button>
+              <button style={{ width: '100%', marginTop: 8 }} onPointerDown={e => { e.preventDefault(); setShowDrawer(false); onSwitchMode(); }}>
+                🖥 PC版に切替
+              </button>
+              {userName !== 'default' && (
+                <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>@{userName}</div>
+              )}
             </div>
           </div>
         </div>

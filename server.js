@@ -283,6 +283,22 @@ app.delete('/api/sessions/:name', async (req, res) => {
   }
 });
 
+// アップデート（git pull → npm run build → 再起動）
+app.post('/api/update', async (req, res) => {
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const execAsync = promisify(exec);
+  const dir = __dirname;
+  try {
+    const pull = await execAsync('git pull', { cwd: dir });
+    const build = await execAsync('npm run build', { cwd: dir });
+    res.json({ ok: true, pull: pull.stdout.trim(), build: build.stdout.trim() });
+    setTimeout(() => process.exit(0), 500);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // tmux capture-pane で履歴取得
 app.get('/api/sessions/:name/history', async (req, res) => {
   const { name } = req.params;

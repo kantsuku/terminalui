@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { DEFAULT_SETTINGS } from '../hooks/useSettings';
 import './SettingsModal.css';
 
@@ -54,6 +54,29 @@ function toDataUrl(file) {
 
 export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [tab, setTab] = useState('character');
+  const [updateStatus, setUpdateStatus] = useState(null); // null | 'loading' | 'done' | 'error'
+  const [updateMsg, setUpdateMsg] = useState('');
+
+  const handleUpdate = async () => {
+    if (!confirm('最新版に更新してサーバーを再起動しますか？')) return;
+    setUpdateStatus('loading');
+    setUpdateMsg('');
+    try {
+      const res = await fetch('/api/update', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setUpdateStatus('done');
+        setUpdateMsg(data.pull || '最新です');
+        setTimeout(() => location.reload(), 4000);
+      } else {
+        setUpdateStatus('error');
+        setUpdateMsg(data.error || 'エラー');
+      }
+    } catch {
+      setUpdateStatus('error');
+      setUpdateMsg('サーバーに繋がらないっちゃ');
+    }
+  };
   const [name, setName]   = useState(settings.name);
   const [accent, setAccent] = useState(settings.accent);
   const [claudePrompt, setClaudePrompt] = useState(settings.claudePrompt || '');
@@ -155,7 +178,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
         </div>
 
         <div className="sm-tabs">
-          {[['character', 'キャラクター'], ['color', 'カラー'], ['lines', 'セリフ']].map(([key, label]) => (
+          {[['character', 'キャラクター'], ['color', 'カラー'], ['lines', 'セリフ'], ['system', 'システム']].map(([key, label]) => (
             <button key={key} className={`sm-tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
               {label}
             </button>
@@ -254,6 +277,26 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                   <textarea className="sm-textarea" value={text} onChange={e => set(e.target.value)} rows={6} />
                 </div>
               ))}
+            </div>
+          )}
+          {/* ── システムタブ ── */}
+          {tab === 'system' && (
+            <div className="sm-section">
+              <label className="sm-label">アップデート</label>
+              <p className="sm-hint">GitHubから最新版を取得してビルド・再起動するっちゃ。</p>
+              <button
+                className="primary"
+                style={{ width: '100%', padding: '10px', fontSize: 14 }}
+                onClick={handleUpdate}
+                disabled={updateStatus === 'loading' || updateStatus === 'done'}
+              >
+                {updateStatus === 'loading' ? '更新中…' : updateStatus === 'done' ? '完了！ページを再読み込み中…' : '最新版に更新する'}
+              </button>
+              {updateMsg && (
+                <pre style={{ marginTop: 12, padding: 10, background: 'var(--bg)', borderRadius: 6, fontSize: 11, color: updateStatus === 'error' ? '#f85149' : 'var(--accent)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                  {updateMsg}
+                </pre>
+              )}
             </div>
           )}
         </div>
