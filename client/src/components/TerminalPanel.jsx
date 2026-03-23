@@ -144,6 +144,15 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     termRef.current = term;
     fitRef.current = fitAddon;
 
+    // ユーザーが手動スクロールしていなければ自動スクロール
+    let scrollLocked = true;
+    const vp = containerRef.current.querySelector('.xterm-viewport');
+    if (vp) {
+      vp.addEventListener('scroll', () => {
+        scrollLocked = vp.scrollTop + vp.clientHeight >= vp.scrollHeight - 50;
+      });
+    }
+
     let mounted = true;
     let reconnectTimeout = null;
 
@@ -169,25 +178,28 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         reconnectTimeout = setTimeout(connect, 2000);
       };
 
-      let autoScrollUntil = Date.now() + 2000;
       let clientAutoEnterTimer = null;
+      let clientAutoEnterCooldown = false;
       ws.onmessage = (e) => {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
         switch (msg.type) {
-          case 'output':
-            term.write(msg.data, Date.now() < autoScrollUntil ? () => term.scrollToBottom() : undefined);
+          case 'output': {
+            term.write(msg.data, scrollLocked ? () => term.scrollToBottom() : undefined);
             onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
-            if (clientAutoEnterRef.current) {
+            if (clientAutoEnterRef.current && !clientAutoEnterCooldown) {
               clearTimeout(clientAutoEnterTimer);
               clientAutoEnterTimer = setTimeout(() => {
                 if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
                   wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
+                  clientAutoEnterCooldown = true;
+                  setTimeout(() => { clientAutoEnterCooldown = false; }, 8000);
                 }
               }, 2000);
             }
             break;
+          }
           case 'exit':
             clearTimeout(clientAutoEnterTimer);
             term.write('\r\n\x1b[90m[session ended]\x1b[0m\r\n');

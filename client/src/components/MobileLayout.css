@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: env(safe-area-inset-top, 0px) 8px 0;
+  padding: env(safe-area-inset-top, 0px) 8px 6px;
   min-height: calc(50px + env(safe-area-inset-top, 0px));
   background: var(--bg3);
   border-bottom: 2px solid var(--accent);
@@ -29,6 +29,7 @@
   flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 4px 0;
 }
 .ml-tabs::-webkit-scrollbar { display: none; }
 
@@ -391,11 +392,15 @@
 }
 
 .ml-key--enter {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  min-width: 44px;
+  min-width: 52px;
   padding: 0 8px;
   white-space: nowrap;
+  opacity: 0.45;
+}
+.ml-key--enter.primary {
+  opacity: 1;
 }
 
 /* テキスト入力行 */

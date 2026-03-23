@@ -17,8 +17,6 @@ const SKILLS = [
 ];
 
 const KEYS = [
-  { label: '↑', data: '\x1b[A' },
-  { label: '↓', data: '\x1b[B' },
   { label: '中断', data: '\x03' },
 ];
 
@@ -93,6 +91,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   }, []);
 
   const textareaRef = useRef(null);
+  const historyScrollRef = useRef(null);
 
   const activeSession = sessions[activeIdx] || null;
   const activeSessionRef = useRef(null);
@@ -103,6 +102,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const res = await fetch(`/api/sessions/${encodeURIComponent(activeSession.name)}/history`);
     const data = await res.json();
     setHistory(data.content || '');
+    setTimeout(() => {
+      if (historyScrollRef.current) {
+        historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight;
+      }
+    }, 50);
   }, [activeSession]);
 
   const handleImageUpload = async (e) => {
@@ -233,8 +237,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
   const sendInput = useCallback((text) => {
     const t = text ?? inputText;
-    if (!t) return;
-    panelRef.current?.sendInput(t + '\r');
+    panelRef.current?.sendInput((t || '') + '\r');
     setInputHistory(h => [t, ...h.filter(x => x !== t)].slice(0, 50));
     inputHistoryIdxRef.current = -1;
     setInputText('');
@@ -493,18 +496,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               onPointerDown={e => { e.preventDefault(); setShowSkillsPopup(v => !v); setActiveSkill(null); }}
             >⚡️</button>
             {KEYS.map(k => (
-              <button key={k.label} className="ml-key ml-key--sm" onClick={() => {
-                if (k.data === '\x1b[A') {
-                  const idx = inputHistoryIdxRef.current + 1;
-                  if (idx < inputHistory.length) { inputHistoryIdxRef.current = idx; setInputText(inputHistory[idx]); }
-                } else if (k.data === '\x1b[B') {
-                  const idx = inputHistoryIdxRef.current - 1;
-                  if (idx >= 0) { inputHistoryIdxRef.current = idx; setInputText(inputHistory[idx]); }
-                  else { inputHistoryIdxRef.current = -1; setInputText(''); }
-                } else {
-                  sendKey(k.data);
-                }
-              }}>
+              <button key={k.label} className="ml-key ml-key--sm" onClick={() => sendKey(k.data)}>
                 {k.label}
               </button>
             ))}
@@ -524,8 +516,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             >
               自動
             </button>
-            <button className="ml-key ml-key--enter primary" onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
-              Yes
+            <button className={`ml-key ml-key--enter ${autoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
+              ⏎ Yes
             </button>
           </div>
           {/* テキスト入力行 */}
@@ -534,15 +526,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               ref={textareaRef}
               className="ml-textarea"
               value={inputText}
-              onChange={e => {
-                const val = e.target.value;
-                if (val.includes('\n') && !e.nativeEvent.isComposing) {
-                  const trimmed = val.replace(/\n/g, '');
-                  sendInput(trimmed || undefined);
-                  return;
-                }
-                setInputText(val);
-              }}
+              onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendInput(); } }}
               placeholder="コマンド入力..."
               autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
@@ -551,7 +535,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               📎
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
             </label>
-            <button className="ml-send primary" onPointerDown={e => { e.preventDefault(); sendInput(); }} disabled={!inputText}>▶</button>
+            <button className="ml-send primary" onPointerDown={e => { e.preventDefault(); sendInput(); }}>▶</button>
           </div>
         </div>
       )}
@@ -608,11 +592,14 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     {/* 履歴: document.body に portal → position:fixed 祖先の iOS スクロールバグを回避 */}
     {!!history && createPortal(
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: '#0d1117', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ height: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderBottom: '1px solid #30363d' }}>
-          <span style={{ color: '#e6edf3', fontWeight: 700, fontSize: 13 }}>履歴</span>
-          <button style={{ background: 'transparent', border: 'none', color: '#e6edf3', fontSize: 20, padding: '4px 8px', cursor: 'pointer' }} onClick={() => setHistory(null)}>✕</button>
+        <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 'env(safe-area-inset-top, 0px) 16px 10px', borderBottom: '1px solid #30363d' }}>
+          <span style={{ color: '#e6edf3', fontWeight: 700, fontSize: 14 }}>履歴</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button style={{ background: '#21262d', border: '1px solid #30363d', borderRadius: 8, color: '#e6edf3', fontSize: 12, padding: '6px 14px', cursor: 'pointer' }} onClick={() => { if (historyScrollRef.current) historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight; }}>↓ 最下部</button>
+            <button style={{ background: 'transparent', border: 'none', color: '#e6edf3', fontSize: 22, padding: '4px 4px', cursor: 'pointer', lineHeight: 1 }} onClick={() => setHistory(null)}>✕</button>
+          </div>
         </div>
-        <div style={{ height: 'calc(var(--vvh, 100dvh) - 44px)', overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={historyScrollRef} style={{ height: 'calc(var(--vvh, 100dvh) - 44px - env(safe-area-inset-top, 0px))', overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}>
           <pre style={{ margin: 0, padding: '12px', color: '#e6edf3', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'hidden' }}>
             {history}
           </pre>

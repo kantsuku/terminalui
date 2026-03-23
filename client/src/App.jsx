@@ -192,7 +192,12 @@ export default function App() {
   }, []);
 
   if (authState === 'checking') {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', color: 'var(--text-muted)' }}>…</div>;
+    return (
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg3)', gap: 12 }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent)' }}>⚡ Terminal UI</div>
+        <div style={{ fontSize: 14, color: 'var(--accent)', opacity: 0.75 }}>よみこんでるっちゃ～</div>
+      </div>
+    );
   }
 
   if (authState === 'required') {
