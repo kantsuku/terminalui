@@ -91,53 +91,32 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(10, 15, 13, 0.88);
-  border: 1px solid var(--border);
+  background: #fff;
+  border: 2.5px solid #000;
   border-radius: 10px;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--text);
-  backdrop-filter: blur(4px);
+  color: #000 !important;
   max-width: 65%;
   text-align: right;
   line-height: 1.4;
 }
+.sidebar-bubble::before {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: -9px;
+  border: 5px solid transparent;
+  border-top-color: #000;
+}
 .sidebar-bubble::after {
   content: '';
   position: absolute;
-  right: 10px;
+  right: 13px;
   bottom: -6px;
   border: 4px solid transparent;
-  border-top-color: var(--border);
-}
-.sidebar-character--working .sidebar-bubble {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.sidebar-character--working .sidebar-bubble::after {
-  border-top-color: var(--accent);
-}
-.sidebar-character--thinking .sidebar-bubble {
-  border-color: #bc8cff;
-  color: #bc8cff;
-}
-.sidebar-character--thinking .sidebar-bubble::after {
-  border-top-color: #bc8cff;
-}
-.sidebar-character--success .sidebar-bubble {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.sidebar-character--success .sidebar-bubble::after {
-  border-top-color: var(--accent);
-}
-.sidebar-character--error .sidebar-bubble {
-  border-color: #f85149;
-  color: #f85149;
-}
-.sidebar-character--error .sidebar-bubble::after {
-  border-top-color: #f85149;
+  border-top-color: #fff;
 }
 
 /* ヘッダー */

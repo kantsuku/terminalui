@@ -23,6 +23,12 @@
   <body>
     <div id="root"><div style="color:#58a6ff;padding:20px;font-size:18px">よんでるっちゃ...⚡</div></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(r => r.unregister());
+        });
+      }
+    </script>
   </body>
 </html>

@@ -19,7 +19,7 @@ const SKILLS = [
 const KEYS = [
   { label: '↑', data: '\x1b[A' },
   { label: '↓', data: '\x1b[B' },
-  { label: 'C-c', data: '\x03' },
+  { label: '中断', data: '\x03' },
   { label: 'C-d', data: '\x04' },
 ];
 
@@ -127,7 +127,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }
   }, [sessions.length, activeIdx]);
 
-  // セッション切替時に表情・状態をリセット＆自動ENTERをセッションtypeに合わせる
+  // セッション切替時に表情・状態をリセット＆自動ENTERをオフ（PCと同様）
   useEffect(() => {
     setIsWorking(false);
     setIsThinking(false);
@@ -137,11 +137,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     clearTimeout(thinkingTimerRef.current);
     clearTimeout(doneTimerRef.current);
     clearTimeout(errorTimerRef.current);
-    const sessionType = sessions[activeIdx]?.type;
-    const stored = localStorage.getItem(autoEnterKey);
-    if (stored === null) {
-      setAutoEnter(sessionType !== 'shell');
-    }
+    setAutoEnter(false);
+    localStorage.setItem(autoEnterKey, 'false');
   }, [activeIdx]);
 
   // 接続完了時に autoEnter 状態をサーバー＆クライアントへ再送
@@ -253,11 +250,19 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     setShowNewModal(false);
     setShowDrawer(false);
     const systemPrompt = type === 'claude' ? settings.claudePrompt : undefined;
-    const res = await createSession({ name, type, systemPrompt });
-    if (res?.name) {
-      const updated = await fetchSessions();
-      const idx = updated.findIndex(s => s.name === res.name);
-      setActiveIdx(idx !== -1 ? idx : 0);
+    try {
+      const res = await createSession({ name, type, systemPrompt });
+      if (res?.name) {
+        // セッション起動直後は tmux に反映されるまで少し待つ
+        await new Promise(r => setTimeout(r, 800));
+        const updated = await fetchSessions();
+        const idx = updated.findIndex(s => s.name === res.name);
+        setActiveIdx(idx !== -1 ? idx : Math.max(updated.length - 1, 0));
+      } else {
+        alert(`セッション作成に失敗っちゃ: ${res?.error || '不明なエラー'}`);
+      }
+    } catch (e) {
+      alert(`セッション作成エラーっちゃ: ${e.message}`);
     }
   }, [createSession, fetchSessions, settings.claudePrompt]);
 
@@ -404,7 +409,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               className="ml-character-img"
               onError={e => { e.target.style.display = 'none'; }}
             />
-            <div className="ml-character-bubble">{speech}</div>
+            {speech && <div className="ml-character-bubble">{speech}</div>}
           </div>
         );
       })()}

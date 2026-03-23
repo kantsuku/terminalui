@@ -121,6 +121,22 @@ function AppMain({ userName }) {
 
   const isMobile = forceMode ? forceMode === 'mobile' : viewportMobile;
 
+  // ホーム画面アイコンをユーザーのキャラ画像に差し替え
+  useEffect(() => {
+    const iconUrl = `/api/icon?user=${encodeURIComponent(userName)}`;
+    // iOS Safari は apple-touch-icon を優先
+    let link = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'apple-touch-icon';
+      document.head.appendChild(link);
+    }
+    link.href = iconUrl;
+    // manifest も更新
+    const manifest = document.querySelector('link[rel="manifest"]');
+    if (manifest) manifest.href = `/manifest.json?user=${encodeURIComponent(userName)}`;
+  }, [userName]);
+
   const switchTo = (mode) => {
     localStorage.setItem(modeKey, mode);
     setForceMode(mode);

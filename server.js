@@ -77,6 +77,13 @@ app.use(authMiddleware);
 const clientDist = path.join(__dirname, 'client', 'dist');
 // Assets have content hashes → cache forever
 app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }));
+// /manifest.json は静的ファイルより先にルートで処理（ユーザーのキャラ画像アイコン用）
+app.get('/manifest.json', (req, res) => {
+  const userName = req.query.user || 'default';
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json(buildManifest(userName));
+});
 // index.html must not be cached
 app.use(express.static(clientDist, { index: false }));
 app.get('/test', (req, res) => {
@@ -161,6 +168,66 @@ app.post('/api/login', (req, res) => {
   res.json({ ok: true });
 });
 
+// 動的マニフェスト（ユーザーのキャラ画像をアイコンに使う）
+function buildManifest(userName) {
+  const iconUrl = `/api/icon?user=${encodeURIComponent(userName)}`;
+  return {
+    name: 'ラムちゃんターミナル',
+    short_name: 'ラムちゃん',
+    description: 'ラムちゃんがお手伝いするターミナルUIだっちゃ！',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0d1117',
+    theme_color: '#1c2128',
+    orientation: 'any',
+    icons: [
+      { src: iconUrl, sizes: '192x192', type: 'image/png' },
+      { src: iconUrl, sizes: '512x512', type: 'image/png' },
+    ],
+  };
+}
+
+app.get('/api/manifest.json', (req, res) => {
+  const userName = req.query.user || 'default';
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json(buildManifest(userName));
+});
+
+// /manifest.json はURLパラメータのuserを使って動的に返す
+app.get('/manifest.json', (req, res) => {
+  const userName = req.query.user || 'default';
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json(buildManifest(userName));
+});
+
+// ユーザーのキャラ画像をアイコンとして配信（センタークロップしてPWAホーム画面用）
+app.get('/api/icon', async (req, res) => {
+  const userName = req.query.user || 'default';
+  try {
+    const p = settingsPath(userName);
+    if (!fs.existsSync(p)) return res.redirect('/character.png');
+    const settings = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const dataUrl = settings.charImgNormal || settings.charImgIdle || settings.charImgWorking;
+    if (!dataUrl || !dataUrl.startsWith('data:')) return res.redirect('/character.png');
+    const [, b64] = dataUrl.split(',');
+    const buf = Buffer.from(b64, 'base64');
+    const sharp = require('sharp');
+    const img = sharp(buf);
+    const { width, height } = await img.metadata();
+    const size = Math.min(width, height);
+    const left = Math.floor((width - size) / 2);
+    const top = Math.floor((height - size) / 2);
+    const cropped = await img.extract({ left, top, width: size, height: size }).png().toBuffer();
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(cropped);
+  } catch {
+    res.redirect('/character.png');
+  }
+});
+
 app.get('/api/info', (req, res) => {
   const PORT = process.env.PORT || 3001;
   const nets = os.networkInterfaces();
@@ -183,11 +250,14 @@ app.get('/api/sessions', async (req, res) => {
 // body: { name?: string, type?: 'shell' | 'claude' }
 app.post('/api/sessions', async (req, res) => {
   const { name, type, systemPrompt } = req.body;
+  console.log(`[POST /api/sessions] name=${name} type=${type} from=${req.ip}`);
   try {
     const command = type === 'claude' ? 'claude' : undefined;
     const sessionName = await createSession(name, command, systemPrompt);
+    console.log(`[POST /api/sessions] created: ${sessionName}`);
     res.json({ ok: true, name: sessionName });
   } catch (err) {
+    console.error(`[POST /api/sessions] error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
@@ -298,38 +368,11 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// ── 起動時セッション自動作成 ───────────────────────────────────────────────────
-// AUTO_SESSIONS="name:type,name2:type2" 形式で指定（type: shell | claude）
-// デフォルト: shell セッション + claude セッション
-async function ensureDefaultSessions() {
-  const raw = process.env.AUTO_SESSIONS || 'shell:shell,claude:claude';
-  const targets = raw.split(',').map(s => {
-    const [name, type = 'shell'] = s.trim().split(':');
-    return { name, type };
-  });
-
-  for (const { name, type } of targets) {
-    const exists = await sessionExists(name);
-    if (!exists) {
-      try {
-        const command = type === 'claude' ? 'claude' : undefined;
-        await createSession(name, command);
-        console.log(`[AutoSession] created "${name}" (${type})`);
-      } catch (e) {
-        console.warn(`[AutoSession] failed to create "${name}": ${e.message}`);
-      }
-    } else {
-      console.log(`[AutoSession] "${name}" already exists`);
-    }
-  }
-}
-
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
   console.log(`Terminal UI running → http://localhost:${PORT}`);
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Network: http://0.0.0.0:${PORT}`);
-  await ensureDefaultSessions();
 });

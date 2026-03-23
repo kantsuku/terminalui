@@ -170,55 +170,33 @@
   position: absolute;
   right: 12px;
   top: 10px;
-  background: rgba(13, 17, 23, 0.85);
-  border: 1px solid var(--border);
+  background: #fff;
+  border: 2.5px solid #000;
   border-radius: 12px;
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--text);
-  backdrop-filter: blur(4px);
+  color: #000 !important;
   max-width: 55%;
   text-align: right;
 }
+/* 漫画吹き出しの尻尾（黒枠） */
+.ml-character-bubble::before {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: -10px;
+  border: 5px solid transparent;
+  border-top-color: #000;
+}
+/* 漫画吹き出しの尻尾（白塗り） */
 .ml-character-bubble::after {
   content: '';
   position: absolute;
-  right: 12px;
+  right: 15px;
   bottom: -7px;
   border: 4px solid transparent;
-  border-top-color: var(--border);
-}
-.ml-character--working .ml-character-bubble {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.ml-character--working .ml-character-bubble::after {
-  border-top-color: var(--accent);
-}
-.ml-character--offline .ml-character-bubble {
-  color: #6e7681;
-}
-.ml-character--thinking .ml-character-bubble {
-  border-color: #bc8cff;
-  color: #bc8cff;
-}
-.ml-character--thinking .ml-character-bubble::after {
-  border-top-color: #bc8cff;
-}
-.ml-character--success .ml-character-bubble {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.ml-character--success .ml-character-bubble::after {
-  border-top-color: var(--accent);
-}
-.ml-character--error .ml-character-bubble {
-  border-color: #f85149;
-  color: #f85149;
-}
-.ml-character--error .ml-character-bubble::after {
-  border-top-color: #f85149;
+  border-top-color: #fff;
 }
 
 /* ══ ステータスバー ══════════════════════════════════════════════════════════ */

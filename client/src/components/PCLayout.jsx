@@ -105,23 +105,23 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     }
   }, [sessions, activeKey]);
 
-  // セッションが消えたら除去、新セッションは空きがあれば自動追加
+  // セッションが消えたら除去（新セッションは自動追加しない）
   useEffect(() => {
     const names = new Set(sessions.map(s => s.name));
-    setActiveSessions(prev => {
-      const filtered = prev.filter(n => names.has(n));
-      const existing = new Set(filtered);
-      const toAdd = sessions.filter(s => !existing.has(s.name)).map(s => s.name).slice(0, 4 - filtered.length);
-      return [...filtered, ...toAdd];
-    });
+    setActiveSessions(prev => prev.filter(n => names.has(n)));
   }, [sessions]);
 
   const toggleSession = useCallback((name) => {
-    setActiveSessions(prev =>
-      prev.includes(name)
-        ? prev.filter(n => n !== name)
-        : prev.length < 4 ? [...prev, name] : prev
-    );
+    setActiveSessions(prev => {
+      if (prev.includes(name)) {
+        // 非表示にするとき: autoYes を解除
+        panelRefs.current[name]?.setAutoYes(false);
+        panelRefs.current[name]?.setClientAutoEnter(false);
+        setAutoYes(p => { const n = { ...p }; delete n[name]; return n; });
+        return prev.filter(n => n !== name);
+      }
+      return prev.length < 4 ? [...prev, name] : prev;
+    });
   }, []);
 
   const notify = useCallback((title, body) => {
@@ -291,16 +291,15 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
             className="sidebar-character-img"
             onError={e => { e.target.src = '/character.png'; e.target.onerror = null; }}
           />
-          <div className="sidebar-bubble">{speech}</div>
+          {speech && <div className="sidebar-bubble">{speech}</div>}
         </div>
 
         {/* ヘッダー */}
         <div className="sidebar-header">
-          <span className="logo">⚡ {settings.name || 'ラムちゃん'}</span>
+          <span className="logo">{settings.name || 'ラムちゃん'}</span>
           {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{userName}</span>}
-          <button className="icon" title="QR" onClick={() => setShowQR(true)}>📱</button>
+          <button className="icon" title="QR" onClick={() => setShowQR(true)}>QR</button>
           <button className="icon" title="設定" onClick={onOpenSettings}>⚙</button>
-          <button className="icon" title="更新" onClick={fetchSessions}>↻</button>
         </div>
 
         {/* セッション一覧 */}
@@ -418,7 +417,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                         ))}
                       </div>
                     )}
-                    <button className="icon" onClick={() => panelRefs.current[name]?.sendKey('\x03')}>C-c</button>
+                    <button className="icon" onClick={() => panelRefs.current[name]?.sendKey('\x03')}>中断</button>
                     <button className="icon" onClick={() => panelRefs.current[name]?.copySelection()}>コピー</button>
                     <button className="icon" onClick={async () => {
                       const res = await fetch(`/api/sessions/${encodeURIComponent(name)}/history`);
