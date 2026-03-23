@@ -436,8 +436,11 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                     >
                       自動
                     </button>
-                    <button className="panel-ctrl-big panel-ctrl-yes primary" onClick={() => panelRefs.current[name]?.sendKey('\r')}>
-                      Yes
+                    <button
+                      className={`panel-ctrl-big panel-ctrl-yes primary${ay ? ' dimmed' : ''}`}
+                      onClick={() => panelRefs.current[name]?.sendKey('\r')}
+                    >
+                      ⏎ Yes
                     </button>
                   </div>
                   {/* テキスト入力行 */}

@@ -210,6 +210,14 @@
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
+  gap: 8px;
+}
+
+.ml-statusbar > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .ml-statusbar--ok   { background: #051a0e; color: var(--accent); }
 .ml-statusbar--warn { background: #2e2510; color: #d29922; }
@@ -219,6 +227,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .ml-reconnect-btn {
@@ -533,7 +542,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 20px;
   border-bottom: 1px solid var(--border);
   font-size: 16px;
   font-weight: 700;
