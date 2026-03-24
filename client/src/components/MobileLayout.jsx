@@ -9,12 +9,15 @@ import './MobileLayout.css';
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
 
 const SKILLS = [
-  { label: '/commit',    cmd: 'コミットして\r',          desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
-  { label: 'git push',   cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
-  { label: 'git status', cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
-  { label: 'git diff',   cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
-  { label: 'clasp push', cmd: 'clasp push\r',           desc: 'GASのコードをGoogle Driveにプッシュする' },
-  { label: '中断',       cmd: '\x1b',                  desc: 'Escキーを送信して処理を中断する' },
+  { label: '/commit',        cmd: 'コミットして\r',               desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
+  { label: 'git push',       cmd: 'git push\r',                 desc: '今のコミットをGitHubに送る' },
+  { label: 'git status',     cmd: 'git status\r',               desc: '何のファイルが変更されているか確認する' },
+  { label: 'git diff',       cmd: 'git --no-pager diff\r',      desc: 'ファイルの中身がどう変わったか確認する' },
+  { label: 'clasp push',     cmd: 'clasp push\r',               desc: 'GASのコードをGoogle Driveにプッシュする' },
+  { label: '中断',           cmd: '\x1b',                       desc: 'Escキーを送信して処理を中断する' },
+  { label: '/design-view',   cmd: '/design-view\r',             desc: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェック' },
+  { label: '/propose',       cmd: '/propose\r',                 desc: 'UX・機能・パフォーマンスなど改善案をAIが提案する' },
+  { label: '/health-check',  cmd: '/health-check\r',            desc: 'クラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出す' },
 ];
 
 const KEYS = [
@@ -175,22 +178,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }
   }, []);
 
-  const playDoneSound = useCallback(() => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      [0, 150, 300].forEach((delay, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.value = [880, 1108, 1320][i];
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0.15, ctx.currentTime + delay / 1000);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay / 1000 + 0.3);
-        osc.start(ctx.currentTime + delay / 1000);
-        osc.stop(ctx.currentTime + delay / 1000 + 0.3);
-      });
-    } catch {}
-  }, []);
+  const playDoneSound = useCallback(() => {}, []);
 
   const handleActivity = useCallback(() => {
     // working のみ管理。thinking は handleOutput が管理する

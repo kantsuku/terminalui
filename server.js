@@ -131,7 +131,8 @@ function settingsPath(userName) {
 // Upload image → save to ~/Desktop/uploads/ → return file path
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file' });
-  res.json({ path: req.file.path });
+  const urlPath = `/uploads/${req.file.filename}`;
+  res.json({ path: urlPath });
 });
 
 app.get('/api/user-settings/:userName', (req, res) => {

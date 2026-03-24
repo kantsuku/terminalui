@@ -129,33 +129,15 @@ function localLoad() {
     const raw = JSON.parse(localStorage.getItem('termui-settings') || 'null');
     if (!raw) return null;
     const migrated = migrateSettings(raw);
-    // 旧フォーマットの画像をlocalStorageから復元（移行時のみ）
-    if (!raw.characters && migrated.characters[0]) {
-      const c = migrated.characters[0];
-      c.charImgNormal   = localStorage.getItem('termui-img-normal')   || null;
-      c.charImgIdle     = localStorage.getItem('termui-img-idle')     || null;
-      c.charImgWorking  = localStorage.getItem('termui-img-working')  || null;
-      c.charImgOffline  = localStorage.getItem('termui-img-offline')  || null;
-      c.charImgThinking = localStorage.getItem('termui-img-thinking') || null;
-      c.charImgSuccess  = localStorage.getItem('termui-img-success')  || null;
-      c.charImgError    = localStorage.getItem('termui-img-error')    || null;
-    }
+    // 旧フォーマット（base64をlocalStorageに持っていた）の移行は終了
     return { ...DEFAULT_SETTINGS, ...migrated };
   } catch { return null; }
 }
 
 function localSave(next) {
   try {
-    // 画像を除いた設定をlocalStorageに保存（容量節約）
-    const slim = {
-      ...next,
-      characters: next.characters.map(c => ({
-        ...c,
-        charImgNormal: null, charImgIdle: null, charImgWorking: null,
-        charImgOffline: null, charImgThinking: null, charImgSuccess: null, charImgError: null,
-      })),
-    };
-    localStorage.setItem('termui-settings', JSON.stringify(slim));
+    // 画像はURLパス（小さい）になったのでそのまま保存
+    localStorage.setItem('termui-settings', JSON.stringify(next));
   } catch { /* quota exceeded */ }
 }
 

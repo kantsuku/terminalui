@@ -29,7 +29,7 @@ function generatePrompt(charName) {
   return `「${charName.trim()}」というキャラクターの口調で応答する。`;
 }
 
-function toDataUrl(file) {
+function resizeAndUpload(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -42,7 +42,14 @@ function toDataUrl(file) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.82));
+      canvas.toBlob(blob => {
+        const form = new FormData();
+        form.append('file', blob, `char_${Date.now()}.jpg`);
+        fetch('/api/upload', { method: 'POST', body: form })
+          .then(r => r.json())
+          .then(data => resolve(data.path))
+          .catch(reject);
+      }, 'image/jpeg', 0.82);
     };
     img.onerror = reject;
     img.src = url;
@@ -82,9 +89,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const handleImgUpload = async (key, file) => {
     if (!file) return;
     try {
-      const dataUrl = await toDataUrl(file);
-      updateChar({ [key]: dataUrl });
-    } catch { alert('画像読み込み失敗'); }
+      const urlPath = await resizeAndUpload(file);
+      updateChar({ [key]: urlPath });
+    } catch { alert('画像アップロード失敗'); }
   };
 
   const handleAddChar = () => {
