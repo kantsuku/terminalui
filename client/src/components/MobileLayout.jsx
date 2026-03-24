@@ -374,9 +374,10 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
           {sessions.map((s, i) => {
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;
             const needsInput = /[\?？]|y\/n|\[y|enter|confirm|続ける|許可|信頼/i.test(s.lastLine || '');
-            const status = needsInput ? { label: '返事するっちゃ！', cls: 'confirm' }
-              : secAgo < 10  ? { label: 'やってるっちゃ！', cls: 'working' }
-              : { label: 'まってるっちゃ〜', cls: 'idle' };
+            const sChar = getCharForSession(settings, s.name);
+            const status = needsInput ? { label: sChar.thinkingLines?.[0] || '確認待ち', cls: 'confirm' }
+              : secAgo < 10  ? { label: sChar.workingLines?.[0]  || '作業中', cls: 'working' }
+              : { label: sChar.idleLines?.[0]    || '待機中', cls: 'idle' };
             return (
               <button
                 key={s.name}

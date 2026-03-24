@@ -6,14 +6,15 @@ export default function NewSessionModal({ onConfirm, onCancel, characters = [], 
   const [characterId, setCharacterId] = useState(defaultCharId || characters[0]?.id || '');
 
   const handleConfirm = () => {
-    // Shell は天馬博士固定
-    onConfirm({ name: name.trim() || undefined, type, characterId: type === 'shell' ? 'tenma' : characterId });
+    // Shell は天馬博士固定・名前は'Shell'固定
+    onConfirm({ name: type === 'shell' ? 'Shell' : (name.trim() || undefined), type, characterId: type === 'shell' ? 'tenma' : characterId });
   };
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ touchAction: 'manipulation', background: '#0f1a16', border: '1px solid #1e3d2f' }}>
         <h3>新規セッション</h3>
+        {type === 'claude' && (
         <div className="row">
           <input
             placeholder="セッション名（省略可）"
@@ -22,6 +23,7 @@ export default function NewSessionModal({ onConfirm, onCancel, characters = [], 
             onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
           />
         </div>
+        )}
         <div className="row" style={{ gap: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
             <input type="radio" name="type" value="shell" checked={type === 'shell'}
