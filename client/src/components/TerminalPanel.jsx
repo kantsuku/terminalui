@@ -40,7 +40,7 @@ const TERM_THEME = {
 };
 
 const TerminalPanel = forwardRef(function TerminalPanel(
-  { sessionName, mobile = false, active = true, ntfyTopic = '', ntfyIconUrl = '', onConnStateChange, onActivity, onOutput, onInput },
+  { sessionName, mobile = false, active = true, ntfyTopic = '', onConnStateChange, onActivity, onOutput, onInput },
   ref
 ) {
   const containerRef = useRef(null);
@@ -190,7 +190,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
       ws.onopen = () => {
         updateState('connected');
-        ws.send(JSON.stringify({ type: 'attach', session: sessionName, cols: term.cols, rows: term.rows, ntfyTopic, ntfyIconUrl }));
+        ws.send(JSON.stringify({ type: 'attach', session: sessionName, cols: term.cols, rows: term.rows, ntfyTopic }));
       };
 
       ws.onerror = () => updateState('error');

@@ -350,7 +350,7 @@ wss.on('connection', (ws, req) => {
             ws.send(JSON.stringify({ type: 'error', message: `Session "${msg.session}" not found` }));
             return;
           }
-          session = attachSession(msg.session, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '', msg.ntfyIconUrl || '');
+          session = attachSession(msg.session, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
           if (autoYesEnabled) session.setAutoYes(true);
         });
         break;
