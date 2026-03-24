@@ -572,8 +572,17 @@
 .ml-drawer-name { font-size: 15px; font-weight: 600; }
 .ml-drawer-last { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.ml-drawer-btns { display: flex; gap: 4px; }
+.ml-drawer-btns { display: flex; gap: 4px; align-items: center; }
 .ml-drawer-btns button { width: 36px; height: 36px; font-size: 14px; }
+.ml-drawer-char-select {
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  max-width: 90px;
+}
 
 .ml-drawer-footer {
   padding: 10px;

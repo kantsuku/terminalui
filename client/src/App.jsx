@@ -160,6 +160,7 @@ function AppMain({ userName }) {
     settings,
     userName,
     onOpenSettings: () => setShowSettings(true),
+    onSaveSettings: handleSave,
   };
 
   return (

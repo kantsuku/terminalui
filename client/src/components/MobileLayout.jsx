@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
+import { getCharForSession } from '../hooks/useSettings';
 import './MobileLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -20,7 +21,7 @@ const KEYS = [
   { label: '中断', data: '\x03' },
 ];
 
-export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, userName = 'default' }) {
+export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, onSaveSettings, userName = 'default' }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -96,6 +97,9 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const activeSession = sessions[activeIdx] || null;
   const activeSessionRef = useRef(null);
   activeSessionRef.current = activeSession;
+
+  // アクティブセッションのキャラを取得
+  const activeChar = getCharForSession(settings, activeSession?.name || '');
 
   const openHistory = useCallback(async () => {
     if (!activeSession) return;
@@ -246,13 +250,19 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     panelRef.current?.sendKey(data);
   }, []);
 
-  const handleCreate = useCallback(async ({ name, type }) => {
+  const handleCreate = useCallback(async ({ name, type, characterId }) => {
     setShowNewModal(false);
     setShowDrawer(false);
-    const systemPrompt = type === 'claude' ? settings.claudePrompt : undefined;
+    const char = settings.characters.find(c => c.id === characterId) || settings.characters[0];
+    const systemPrompt = type === 'claude' ? char?.claudePrompt : undefined;
     try {
       const res = await createSession({ name, type, systemPrompt });
       if (res?.name) {
+        // セッション↔キャラ紐づけを保存
+        if (characterId) {
+          const newSessionChars = { ...(settings.sessionChars || {}), [res.name]: characterId };
+          onSaveSettings?.({ sessionChars: newSessionChars });
+        }
         // セッション起動直後は tmux に反映されるまで少し待つ
         await new Promise(r => setTimeout(r, 800));
         const updated = await fetchSessions();
@@ -372,24 +382,24 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       {(() => {
         const charState = displayCharState;
         // idle/working は通常顔と交互に切替（通常顔が設定されている場合）
-        const normalImg = settings.charImgNormal || null;
+        const normalImg = activeChar.charImgNormal || null;
         const cycleToNormal = normalImg && charTick % 2 === 1;
-        const fallback = normalImg || settings.charImgIdle || null;
+        const fallback = normalImg || activeChar.charImgIdle || null;
         const charSrcMap = {
-          offline:  settings.charImgOffline  || fallback,
-          error:    settings.charImgError    || fallback,
-          success:  settings.charImgSuccess  || fallback,
-          thinking: settings.charImgThinking || fallback,
-          working:  cycleToNormal ? normalImg : (settings.charImgWorking  || fallback),
-          idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || fallback),
+          offline:  activeChar.charImgOffline  || fallback,
+          error:    activeChar.charImgError    || fallback,
+          success:  activeChar.charImgSuccess  || fallback,
+          thinking: activeChar.charImgThinking || fallback,
+          working:  cycleToNormal ? normalImg : (activeChar.charImgWorking  || fallback),
+          idle:     cycleToNormal ? normalImg : (activeChar.charImgIdle     || fallback),
         };
         const linesMap = {
-          offline:  settings.offlineLines  || [],
-          error:    settings.errorLines    || [],
-          success:  settings.successLines  || [],
-          thinking: settings.thinkingLines || [],
-          working:  settings.workingLines  || [],
-          idle:     settings.idleLines     || [],
+          offline:  activeChar.offlineLines  || [],
+          error:    activeChar.errorLines    || [],
+          success:  activeChar.successLines  || [],
+          thinking: activeChar.thinkingLines || [],
+          working:  activeChar.workingLines  || [],
+          idle:     activeChar.idleLines     || [],
         };
         const intervalMap = { offline: 15000, error: 7000, success: 5000, thinking: 8000, working: 8000, idle: 12000 };
         const src   = charSrcMap[charState];
@@ -560,6 +570,21 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                     {s.lastLine && <div className="ml-drawer-last">{s.lastLine}</div>}
                   </div>
                   <div className="ml-drawer-btns" onPointerDown={e => e.stopPropagation()}>
+                    {(settings.characters?.length > 1) && (
+                      <select
+                        className="ml-drawer-char-select"
+                        value={settings.sessionChars?.[s.name] || settings.defaultCharId || ''}
+                        onChange={e => {
+                          const newSessionChars = { ...(settings.sessionChars || {}), [s.name]: e.target.value };
+                          onSaveSettings?.({ sessionChars: newSessionChars });
+                        }}
+                        onPointerDown={e => e.stopPropagation()}
+                      >
+                        {settings.characters.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    )}
                     <button className="icon" onPointerDown={() => { setRenaming({ name: s.name }); setShowDrawer(false); }}>✎</button>
                     <button className="icon danger" onPointerDown={() => handleKill(s.name)}>✕</button>
                   </div>
@@ -584,7 +609,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         </div>
       )}
 
-      {showNewModal && <NewSessionModal onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
+      {showNewModal && <NewSessionModal characters={settings.characters || []} defaultCharId={settings.defaultCharId} onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
       {renaming && <RenameModal currentName={renaming.name} onConfirm={handleRename} onCancel={() => setRenaming(null)} />}
     </div>
 

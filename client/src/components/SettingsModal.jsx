@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { DEFAULT_SETTINGS } from '../hooks/useSettings';
+import { DEFAULT_CHARACTER } from '../hooks/useSettings';
 import './SettingsModal.css';
 
 const CHARACTER_PRESETS = [
@@ -19,10 +19,7 @@ const CHARACTER_PRESETS = [
     label: 'みさと（パープル）', color: '#bc8cff',
     prompt: '葛城ミサト（エヴァンゲリオン）風の口調で応答する。明るく豪快で「〜よ」「〜ね」「でしょ？」などを使う。',
   },
-  {
-    label: 'ゴールド', color: '#ffd700',
-    prompt: '',
-  },
+  { label: 'ゴールド', color: '#ffd700', prompt: '' },
 ];
 
 function generatePrompt(charName) {
@@ -52,10 +49,75 @@ function toDataUrl(file) {
   });
 }
 
+function newCharId() {
+  return `char_${Date.now()}`;
+}
+
 export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [tab, setTab] = useState('character');
-  const [updateStatus, setUpdateStatus] = useState(null); // null | 'loading' | 'done' | 'error'
+  const [updateStatus, setUpdateStatus] = useState(null);
   const [updateMsg, setUpdateMsg] = useState('');
+
+  // キャラクター一覧の編集用ローカルコピー
+  const [characters, setCharacters] = useState(() =>
+    settings.characters.map(c => ({ ...c }))
+  );
+  const [defaultCharId, setDefaultCharId] = useState(settings.defaultCharId);
+  const [selectedCharId, setSelectedCharId] = useState(
+    settings.defaultCharId || settings.characters[0]?.id
+  );
+  const [ntfyTopic, setNtfyTopic] = useState(settings.ntfyTopic || '');
+
+  const selectedChar = characters.find(c => c.id === selectedCharId) || characters[0];
+  const selectedIdx = characters.findIndex(c => c.id === selectedCharId);
+
+  // 選択中キャラのフィールドを更新するヘルパー
+  const updateChar = (partial) => {
+    setCharacters(prev => prev.map(c =>
+      c.id === selectedCharId ? { ...c, ...partial } : c
+    ));
+  };
+
+  const handleImgUpload = async (key, file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await toDataUrl(file);
+      updateChar({ [key]: dataUrl });
+    } catch { alert('画像読み込み失敗'); }
+  };
+
+  const handleAddChar = () => {
+    const id = newCharId();
+    const newChar = { ...DEFAULT_CHARACTER, id, name: '新キャラ' };
+    setCharacters(prev => [...prev, newChar]);
+    setSelectedCharId(id);
+  };
+
+  const handleDeleteChar = () => {
+    if (characters.length <= 1) { alert('最後のキャラは削除できないっちゃ'); return; }
+    if (!confirm(`「${selectedChar.name}」を削除しますか？`)) return;
+    const next = characters.filter(c => c.id !== selectedCharId);
+    setCharacters(next);
+    const newSel = next[0].id;
+    setSelectedCharId(newSel);
+    if (defaultCharId === selectedCharId) setDefaultCharId(newSel);
+  };
+
+  const handleSave = () => {
+    onSave({
+      ntfyTopic,
+      characters,
+      defaultCharId,
+      sessionChars: settings.sessionChars || {},
+    });
+    onClose();
+  };
+
+  const handleReset = () => {
+    if (!confirm('設定をリセットしますか？')) return;
+    onReset();
+    onClose();
+  };
 
   const handleUpdate = async () => {
     if (!confirm('最新版に更新してサーバーを再起動しますか？')) return;
@@ -77,66 +139,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
       setUpdateMsg('サーバーに繋がらないっちゃ');
     }
   };
-  const [name, setName]   = useState(settings.name);
-  const [accent, setAccent] = useState(settings.accent);
-  const [claudePrompt, setClaudePrompt] = useState(settings.claudePrompt || '');
-  const [ntfyTopic, setNtfyTopic] = useState(settings.ntfyTopic || '');
-  const [imgs, setImgs] = useState({
-    normal:   settings.charImgNormal,
-    idle:     settings.charImgIdle,
-    working:  settings.charImgWorking,
-    offline:  settings.charImgOffline,
-    thinking: settings.charImgThinking,
-    success:  settings.charImgSuccess,
-    error:    settings.charImgError,
-  });
-  const [idleText,     setIdleText]     = useState((settings.idleLines     || []).join('\n'));
-  const [workingText,  setWorkingText]  = useState((settings.workingLines  || []).join('\n'));
-  const [offlineText,  setOfflineText]  = useState((settings.offlineLines  || []).join('\n'));
-  const [thinkingText, setThinkingText] = useState((settings.thinkingLines || []).join('\n'));
-  const [successText,  setSuccessText]  = useState((settings.successLines  || []).join('\n'));
-  const [errorText,    setErrorText]    = useState((settings.errorLines    || []).join('\n'));
-
-  const handleImgUpload = async (key, file) => {
-    if (!file) return;
-    try {
-      const dataUrl = await toDataUrl(file);
-      setImgs(prev => ({ ...prev, [key]: dataUrl }));
-    } catch { alert('画像読み込み失敗'); }
-  };
-
-  const handleSave = () => {
-    const toLines = t => t.split('\n').map(l => l.trim()).filter(Boolean);
-    onSave({
-      name,
-      accent,
-      claudePrompt,
-      ntfyTopic,
-      charImgNormal:   imgs.normal,
-      charImgIdle:     imgs.idle,
-      charImgWorking:  imgs.working,
-      charImgOffline:  imgs.offline,
-      charImgThinking: imgs.thinking,
-      charImgSuccess:  imgs.success,
-      charImgError:    imgs.error,
-      idleLines:     toLines(idleText),
-      workingLines:  toLines(workingText),
-      offlineLines:  toLines(offlineText),
-      thinkingLines: toLines(thinkingText),
-      successLines:  toLines(successText),
-      errorLines:    toLines(errorText),
-    });
-    onClose();
-  };
-
-  const handleReset = () => {
-    if (!confirm('設定をリセットしますか？')) return;
-    onReset();
-    onClose();
-  };
 
   const handleDownloadPrompts = () => {
-    const charName = name.trim() || 'キャラクター';
+    const charName = selectedChar.name.trim() || 'キャラクター';
     const base = `アニメ風イラスト、${charName}のキャラクター、白背景、全身または上半身、シンプルな線画カラーイラスト`;
     const prompts = [
       { label: '通常（normal）',     hint: 'normal standing pose, neutral expression, relaxed' },
@@ -147,29 +152,20 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
       { label: 'エラー（error）',    hint: 'surprised or worried, sweat drop, apologetic expression' },
       { label: 'オフライン（offline）', hint: 'sleeping or resting, eyes closed, zzz, peaceful' },
     ];
-
     const styleNote = 'テイスト・画風・色調・構図は一切変更せず、表情のみ変えてください。';
     const text = [
       `# ${charName} キャラクター画像生成プロンプト`,
-      `# Gemini / Imagen などの画像生成AIに使用してください`,
-      `# 各画像は 600x600px 程度の正方形を推奨`,
-      `# ※ 2枚目以降は1枚目の画像を参照しながら生成し、${styleNote}`,
       '',
-      ...prompts.map(p => [
-        `## ${p.label}`,
-        `${base}, ${p.hint}。${styleNote}`,
-        '',
-      ].join('\n')),
+      ...prompts.map(p => [`## ${p.label}`, `${base}, ${p.hint}。${styleNote}`, ''].join('\n')),
     ].join('\n');
-
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${charName}-image-prompts.txt`;
-    a.click();
+    a.href = url; a.download = `${charName}-image-prompts.txt`; a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (!selectedChar) return null;
 
   return (
     <div className="sm-backdrop" onClick={onClose}>
@@ -179,8 +175,31 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           <button className="icon" onClick={onClose}>✕</button>
         </div>
 
+        {/* キャラクター選択バー */}
+        <div className="sm-char-bar">
+          <select
+            className="sm-char-select"
+            value={selectedCharId}
+            onChange={e => setSelectedCharId(e.target.value)}
+          >
+            {characters.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.id === defaultCharId ? ' ★' : ''}
+              </option>
+            ))}
+          </select>
+          <button className="sm-char-btn" onClick={handleAddChar}>＋</button>
+          <button
+            className="sm-char-btn sm-char-btn--default"
+            onClick={() => setDefaultCharId(selectedCharId)}
+            title="デフォルトに設定"
+            style={{ color: selectedCharId === defaultCharId ? 'var(--accent)' : undefined }}
+          >★</button>
+          <button className="sm-char-btn danger" onClick={handleDeleteChar}>削除</button>
+        </div>
+
         <div className="sm-tabs">
-          {[['character', 'キャラクター'], ['color', 'カラー'], ['lines', 'セリフ'], ['system', 'システム']].map(([key, label]) => (
+          {[['character', 'キャラ'], ['color', 'カラー'], ['lines', 'セリフ'], ['system', 'システム']].map(([key, label]) => (
             <button key={key} className={`sm-tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
               {label}
             </button>
@@ -193,13 +212,16 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {tab === 'character' && (
             <div className="sm-section">
               <label className="sm-label">キャラクター名</label>
-              <input className="sm-input" value={name} onChange={e => setName(e.target.value)} placeholder="例: ラムちゃん" />
+              <input className="sm-input" value={selectedChar.name}
+                onChange={e => updateChar({ name: e.target.value })} placeholder="例: ラムちゃん" />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 }}>
-                <label className="sm-label" style={{ margin: 0 }}>Claude口調（Claudeセッション作成時に適用）</label>
-                <button className="sm-reset-lines" onClick={() => setClaudePrompt(generatePrompt(name))}>自動設定</button>
+                <label className="sm-label" style={{ margin: 0 }}>Claude口調</label>
+                <button className="sm-reset-lines" onClick={() => updateChar({ claudePrompt: generatePrompt(selectedChar.name) })}>自動設定</button>
               </div>
-              <textarea className="sm-textarea" rows={4} value={claudePrompt} onChange={e => setClaudePrompt(e.target.value)} placeholder="例: ラム（うる星やつら）風の口調で応答する。語尾に「っちゃ」を使う。" />
+              <textarea className="sm-textarea" rows={4} value={selectedChar.claudePrompt || ''}
+                onChange={e => updateChar({ claudePrompt: e.target.value })}
+                placeholder="例: ラム風の口調で応答する。語尾に「っちゃ」を使う。" />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 }}>
                 <label className="sm-label" style={{ margin: 0 }}>キャラクター画像</label>
@@ -207,18 +229,18 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
               </div>
               <div className="sm-img-grid">
                 {[
-                  { key: 'normal',   label: '通常' },
-                  { key: 'idle',     label: '待機中' },
-                  { key: 'working',  label: '作業中' },
-                  { key: 'thinking', label: '考え中' },
-                  { key: 'success',  label: '完了' },
-                  { key: 'error',    label: 'エラー' },
-                  { key: 'offline',  label: 'オフライン' },
+                  { key: 'charImgNormal',   label: '通常' },
+                  { key: 'charImgIdle',     label: '待機中' },
+                  { key: 'charImgWorking',  label: '作業中' },
+                  { key: 'charImgThinking', label: '考え中' },
+                  { key: 'charImgSuccess',  label: '完了' },
+                  { key: 'charImgError',    label: 'エラー' },
+                  { key: 'charImgOffline',  label: 'オフライン' },
                 ].map(({ key, label }) => (
                   <div key={key} className="sm-img-item">
                     <div className="sm-img-preview">
-                      {imgs[key]
-                        ? <img src={imgs[key]} alt={label} />
+                      {selectedChar[key]
+                        ? <img src={selectedChar[key]} alt={label} />
                         : <span className="sm-img-placeholder">未設定</span>
                       }
                     </div>
@@ -228,10 +250,8 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                       <input type="file" accept="image/*" style={{ display: 'none' }}
                         onChange={e => handleImgUpload(key, e.target.files?.[0])} />
                     </label>
-                    {imgs[key] && (
-                      <button className="sm-img-clear" onClick={() => setImgs(p => ({ ...p, [key]: null }))}>
-                        削除
-                      </button>
+                    {selectedChar[key] && (
+                      <button className="sm-img-clear" onClick={() => updateChar({ [key]: null })}>削除</button>
                     )}
                   </div>
                 ))}
@@ -244,14 +264,18 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
             <div className="sm-section">
               <label className="sm-label">アクセントカラー</label>
               <div className="sm-color-row">
-                <input type="color" className="sm-color-picker" value={accent} onChange={e => setAccent(e.target.value)} />
-                <span className="sm-color-value">{accent}</span>
-                <div className="sm-color-preview" style={{ background: accent }} />
+                <input type="color" className="sm-color-picker" value={selectedChar.accent || '#00d4aa'}
+                  onChange={e => updateChar({ accent: e.target.value })} />
+                <span className="sm-color-value">{selectedChar.accent}</span>
+                <div className="sm-color-preview" style={{ background: selectedChar.accent }} />
               </div>
               <div className="sm-color-presets">
                 {CHARACTER_PRESETS.map(p => (
                   <button key={p.color} className="sm-preset" style={{ borderColor: p.color, color: p.color }}
-                    onClick={() => { setAccent(p.color); if (p.prompt) setClaudePrompt(p.prompt); }}>
+                    onClick={() => {
+                      updateChar({ accent: p.color });
+                      if (p.prompt) updateChar({ claudePrompt: p.prompt });
+                    }}>
                     {p.label}
                   </button>
                 ))}
@@ -264,43 +288,39 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
             <div className="sm-section">
               <p className="sm-hint">1行につき1セリフ。空行は無視されるっちゃ。</p>
               {[
-                { label: '待機中セリフ',   text: idleText,     set: setIdleText,     def: DEFAULT_SETTINGS.idleLines },
-                { label: '作業中セリフ',   text: workingText,  set: setWorkingText,  def: DEFAULT_SETTINGS.workingLines },
-                { label: '考え中セリフ',   text: thinkingText, set: setThinkingText, def: DEFAULT_SETTINGS.thinkingLines },
-                { label: '完了セリフ',     text: successText,  set: setSuccessText,  def: DEFAULT_SETTINGS.successLines },
-                { label: 'エラーセリフ',   text: errorText,    set: setErrorText,    def: DEFAULT_SETTINGS.errorLines },
-                { label: 'オフラインセリフ', text: offlineText, set: setOfflineText,  def: DEFAULT_SETTINGS.offlineLines },
-              ].map(({ label, text, set, def }) => (
-                <div key={label} style={{ marginBottom: 16 }}>
+                { label: '待機中セリフ',     key: 'idleLines',     def: DEFAULT_CHARACTER.idleLines },
+                { label: '作業中セリフ',     key: 'workingLines',  def: DEFAULT_CHARACTER.workingLines },
+                { label: '考え中セリフ',     key: 'thinkingLines', def: DEFAULT_CHARACTER.thinkingLines },
+                { label: '完了セリフ',       key: 'successLines',  def: DEFAULT_CHARACTER.successLines },
+                { label: 'エラーセリフ',     key: 'errorLines',    def: DEFAULT_CHARACTER.errorLines },
+                { label: 'オフラインセリフ', key: 'offlineLines',  def: DEFAULT_CHARACTER.offlineLines },
+              ].map(({ label, key, def }) => (
+                <div key={key} style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <label className="sm-label" style={{ margin: 0 }}>{label}</label>
-                    <button className="sm-reset-lines" onClick={() => set(def.join('\n'))}>デフォルトに戻す</button>
+                    <button className="sm-reset-lines" onClick={() => updateChar({ [key]: def })}>デフォルトに戻す</button>
                   </div>
-                  <textarea className="sm-textarea" value={text} onChange={e => set(e.target.value)} rows={6} />
+                  <textarea className="sm-textarea" rows={6}
+                    value={(selectedChar[key] || []).join('\n')}
+                    onChange={e => updateChar({ [key]: e.target.value.split('\n').map(l => l.trim()).filter(Boolean) })} />
                 </div>
               ))}
             </div>
           )}
+
           {/* ── システムタブ ── */}
           {tab === 'system' && (
             <div className="sm-section">
               <label className="sm-label">プッシュ通知（ntfy.sh）</label>
               <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届くっちゃ。</p>
-              <input
-                className="sm-input"
-                value={ntfyTopic}
-                onChange={e => setNtfyTopic(e.target.value)}
-                placeholder="例: termui-yourname-abc123"
-              />
+              <input className="sm-input" value={ntfyTopic} onChange={e => setNtfyTopic(e.target.value)}
+                placeholder="例: termui-yourname-abc123" />
 
               <label className="sm-label" style={{ marginTop: 20 }}>アップデート</label>
               <p className="sm-hint">GitHubから最新版を取得してビルド・再起動するっちゃ。</p>
-              <button
-                className="primary"
-                style={{ width: '100%', padding: '10px', fontSize: 14 }}
+              <button className="primary" style={{ width: '100%', padding: '10px', fontSize: 14 }}
                 onClick={handleUpdate}
-                disabled={updateStatus === 'loading' || updateStatus === 'done'}
-              >
+                disabled={updateStatus === 'loading' || updateStatus === 'done'}>
                 {updateStatus === 'loading' ? '更新中…' : updateStatus === 'done' ? '完了！ページを再読み込み中…' : '最新版に更新する'}
               </button>
               {updateMsg && (

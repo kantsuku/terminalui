@@ -3,6 +3,7 @@ import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
 import QRModal from './QRModal';
+import { getCharForSession } from '../hooks/useSettings';
 import './PCLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -17,7 +18,7 @@ const SKILLS = [
 ];
 
 
-export default function PCLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, userName = 'default' }) {
+export default function PCLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, onSaveSettings, userName = 'default' }) {
   const activeKey = `termui-active-${userName}`;
   const [activeSessions, setActiveSessions] = useState(() => {
     try {
@@ -207,15 +208,20 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 15000);
   }, []);
 
-  const handleCreate = useCallback(async ({ name, type }) => {
+  const handleCreate = useCallback(async ({ name, type, characterId }) => {
     setShowNewModal(false);
-    const systemPrompt = type === 'claude' ? settings.claudePrompt : undefined;
+    const char = settings.characters?.find(c => c.id === characterId) || settings.characters?.[0];
+    const systemPrompt = type === 'claude' ? char?.claudePrompt : undefined;
     const res = await createSession({ name, type, systemPrompt });
     if (res?.name) {
+      if (characterId) {
+        const newSessionChars = { ...(settings.sessionChars || {}), [res.name]: characterId };
+        onSaveSettings?.({ sessionChars: newSessionChars });
+      }
       await fetchSessions();
       setActiveSessions(prev => prev.length < 4 ? [...prev, res.name] : prev);
     }
-  }, [createSession, fetchSessions, settings.claudePrompt]);
+  }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
   const handleKill = useCallback(async (name) => {
     if (!confirm(`"${name}" を終了しますか？`)) return;
@@ -252,24 +258,26 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     dragSrcRef.current = null;
   }, [activeKey]);
 
-  // キャラクター
+  // キャラクター（フォーカス中のセッション or デフォルト）
+  const focusedSession = activeSessions[0] || '';
+  const activeChar = getCharForSession(settings, focusedSession);
   const charState = displayCharState;
-  const normalImg = settings.charImgNormal || null;
+  const normalImg = activeChar.charImgNormal || null;
   const cycleToNormal = normalImg && charTick % 2 === 1;
-  const fallback = normalImg || settings.charImgIdle || null;
+  const fallback = normalImg || activeChar.charImgIdle || null;
   const charSrcMap = {
-    error:    settings.charImgError    || fallback,
-    success:  settings.charImgSuccess  || fallback,
-    thinking: settings.charImgThinking || fallback,
-    working:  cycleToNormal ? normalImg : (settings.charImgWorking  || fallback),
-    idle:     cycleToNormal ? normalImg : (settings.charImgIdle     || fallback),
+    error:    activeChar.charImgError    || fallback,
+    success:  activeChar.charImgSuccess  || fallback,
+    thinking: activeChar.charImgThinking || fallback,
+    working:  cycleToNormal ? normalImg : (activeChar.charImgWorking  || fallback),
+    idle:     cycleToNormal ? normalImg : (activeChar.charImgIdle     || fallback),
   };
   const linesMap = {
-    error:    settings.errorLines    || [],
-    success:  settings.successLines  || [],
-    thinking: settings.thinkingLines || [],
-    working:  settings.workingLines  || [],
-    idle:     settings.idleLines     || [],
+    error:    activeChar.errorLines    || [],
+    success:  activeChar.successLines  || [],
+    thinking: activeChar.thinkingLines || [],
+    working:  activeChar.workingLines  || [],
+    idle:     activeChar.idleLines     || [],
   };
   const intervalMap = { error: 7000, success: 5000, thinking: 8000, working: 8000, idle: 12000 };
   const charSrc = charSrcMap[charState];
@@ -296,7 +304,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
 
         {/* ヘッダー */}
         <div className="sidebar-header">
-          <span className="logo">{settings.name || 'ラムちゃん'}</span>
+          <span className="logo">{activeChar.name || 'ラムちゃん'}</span>
           {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{userName}</span>}
           <button className="icon" title="QR" onClick={() => setShowQR(true)}>QR</button>
           <button className="icon" title="設定" onClick={onOpenSettings}>⚙</button>
@@ -499,7 +507,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         )}
       </div>
 
-      {showNewModal && <NewSessionModal onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
+      {showNewModal && <NewSessionModal characters={settings.characters || []} defaultCharId={settings.defaultCharId} onConfirm={handleCreate} onCancel={() => setShowNewModal(false)} />}
       {renaming && <RenameModal currentName={renaming.name} onConfirm={handleRename} onCancel={() => setRenaming(null)} />}
       {showQR && <QRModal onClose={() => setShowQR(false)} />}
 
