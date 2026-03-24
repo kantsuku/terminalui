@@ -439,6 +439,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             sessionName={activeSession.name}
             mobile={true}
             ntfyTopic={settings.ntfyTopic || ''}
+            ntfyIconUrl={settings.ntfyTopic ? `${location.origin}/api/icon?user=${encodeURIComponent(userName)}` : ''}
             onConnStateChange={setConnState}
             onActivity={handleActivity}
             onOutput={handleOutput}

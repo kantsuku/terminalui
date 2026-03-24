@@ -384,6 +384,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       sessionName={name}
                       mobile={false}
                       ntfyTopic={settings.ntfyTopic || ''}
+                      ntfyIconUrl={settings.ntfyTopic ? `${location.origin}/api/icon?user=${encodeURIComponent(userName)}` : ''}
                       onActivity={handleActivity}
                       onOutput={handleOutput}
                       onInput={handleInput}
