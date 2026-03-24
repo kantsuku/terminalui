@@ -49,6 +49,8 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   const wsRef = useRef(null);
   const connectRef = useRef(null);
   const clientAutoEnterRef = useRef(false);
+  const clientAutoEnterTimerRef = useRef(null);
+  const clientAutoEnterCooldownRef = useRef(false);
   const onOutputRef   = useRef(onOutput);
   const onInputRef    = useRef(onInput);
   const onActivityRef = useRef(onActivity);
@@ -75,7 +77,21 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     sendInput(data) { sendJson({ type: 'input', data }); },
     sendKey(key)   { sendJson({ type: 'input', data: key }); },
     setAutoYes(enabled) { sendJson({ type: 'autoyes', enabled }); },
-    setClientAutoEnter(enabled) { clientAutoEnterRef.current = enabled; },
+    setClientAutoEnter(enabled) {
+      clientAutoEnterRef.current = enabled;
+      if (enabled && !clientAutoEnterCooldownRef.current) {
+        clearTimeout(clientAutoEnterTimerRef.current);
+        clientAutoEnterTimerRef.current = setTimeout(() => {
+          if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
+            clientAutoEnterCooldownRef.current = true;
+            setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 8000);
+          }
+        }, 2000);
+      } else if (!enabled) {
+        clearTimeout(clientAutoEnterTimerRef.current);
+      }
+    },
     focus() { termRef.current?.focus(); },
     scrollUp() {
       const vp = containerRef.current?.querySelector('.xterm-viewport');
@@ -186,8 +202,6 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         reconnectTimeout = setTimeout(connect, 2000);
       };
 
-      let clientAutoEnterTimer = null;
-      let clientAutoEnterCooldown = false;
       ws.onmessage = (e) => {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
@@ -196,20 +210,20 @@ const TerminalPanel = forwardRef(function TerminalPanel(
             term.write(msg.data, (scrollLocked && !isInitializing) ? () => term.scrollToBottom() : undefined);
             onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
-            if (clientAutoEnterRef.current && !clientAutoEnterCooldown) {
-              clearTimeout(clientAutoEnterTimer);
-              clientAutoEnterTimer = setTimeout(() => {
+            if (clientAutoEnterRef.current && !clientAutoEnterCooldownRef.current) {
+              clearTimeout(clientAutoEnterTimerRef.current);
+              clientAutoEnterTimerRef.current = setTimeout(() => {
                 if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
                   wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
-                  clientAutoEnterCooldown = true;
-                  setTimeout(() => { clientAutoEnterCooldown = false; }, 8000);
+                  clientAutoEnterCooldownRef.current = true;
+                  setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 8000);
                 }
               }, 2000);
             }
             break;
           }
           case 'exit':
-            clearTimeout(clientAutoEnterTimer);
+            clearTimeout(clientAutoEnterTimerRef.current);
             term.write('\r\n\x1b[90m[session ended]\x1b[0m\r\n');
             break;
           case 'error':  term.write(`\r\n\x1b[31m[error: ${msg.message}]\x1b[0m\r\n`); break;
