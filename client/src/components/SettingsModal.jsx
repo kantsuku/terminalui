@@ -80,6 +80,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [name, setName]   = useState(settings.name);
   const [accent, setAccent] = useState(settings.accent);
   const [claudePrompt, setClaudePrompt] = useState(settings.claudePrompt || '');
+  const [ntfyTopic, setNtfyTopic] = useState(settings.ntfyTopic || '');
   const [imgs, setImgs] = useState({
     normal:   settings.charImgNormal,
     idle:     settings.charImgIdle,
@@ -110,6 +111,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
       name,
       accent,
       claudePrompt,
+      ntfyTopic,
       charImgNormal:   imgs.normal,
       charImgIdle:     imgs.idle,
       charImgWorking:  imgs.working,
@@ -282,7 +284,16 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {/* ── システムタブ ── */}
           {tab === 'system' && (
             <div className="sm-section">
-              <label className="sm-label">アップデート</label>
+              <label className="sm-label">プッシュ通知（ntfy.sh）</label>
+              <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届くっちゃ。</p>
+              <input
+                className="sm-input"
+                value={ntfyTopic}
+                onChange={e => setNtfyTopic(e.target.value)}
+                placeholder="例: termui-yourname-abc123"
+              />
+
+              <label className="sm-label" style={{ marginTop: 20 }}>アップデート</label>
               <p className="sm-hint">GitHubから最新版を取得してビルド・再起動するっちゃ。</p>
               <button
                 className="primary"

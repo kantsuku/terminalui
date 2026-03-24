@@ -438,6 +438,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             ref={panelRef}
             sessionName={activeSession.name}
             mobile={true}
+            ntfyTopic={settings.ntfyTopic || ''}
             onConnStateChange={setConnState}
             onActivity={handleActivity}
             onOutput={handleOutput}

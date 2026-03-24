@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export const DEFAULT_SETTINGS = {
   name: 'ラムちゃん',
+  ntfyTopic: '',
   accent: '#00d4aa',
   claudePrompt: 'ラム（うる星やつら）風の口調で応答する。語尾に「っちゃ」「のけ」「だっちゃ」を使う。例:「まかせるっちゃ！」「ダーリン、何かないのけ？」「ちゅどーん！」など。',
   charImgNormal:   null,  // 通常顔（idle/working中に交互表示）

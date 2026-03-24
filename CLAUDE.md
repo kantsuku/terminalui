@@ -42,6 +42,16 @@ kill -9 $(lsof -t -i :3001)
 AUTO_SESSIONS="myshell:shell,ai:claude" nohup node server.js > /tmp/terminal-ui.log 2>&1 &
 ```
 
+### プッシュ通知（ntfy.sh）
+環境変数 `NTFY_TOPIC` でサーバー全体のデフォルトトピックを設定できる。
+ユーザーごとのトピックは設定画面（⚙ → システム）から設定可能。設定画面の値が優先される。
+```bash
+NTFY_TOPIC=your-topic nohup node server.js > /tmp/terminal-ui.log 2>&1 &
+```
+- 3秒間出力がなくなったら「完了」通知（優先度3）
+- 確認プロンプト検知で「返事が必要」通知（優先度4）
+- 質問通知は30秒クールダウンでスパム防止
+
 ## 技術スタック
 - **サーバー**: Node.js + Express + ws（WebSocket）+ @homebridge/node-pty-prebuilt-multiarch
 - **クライアント**: React + Vite + xterm.js（@xterm/xterm）

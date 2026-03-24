@@ -383,6 +383,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       ref={el => { panelRefs.current[name] = el; }}
                       sessionName={name}
                       mobile={false}
+                      ntfyTopic={settings.ntfyTopic || ''}
                       onActivity={handleActivity}
                       onOutput={handleOutput}
                       onInput={handleInput}
