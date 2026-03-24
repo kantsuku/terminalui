@@ -205,7 +205,15 @@ export default function App() {
   }
 
   if (!urlUser) {
+    const savedUser = localStorage.getItem('termui-last-user');
+    if (savedUser) {
+      const url = new URL(location.href);
+      url.searchParams.set('user', savedUser);
+      location.replace(url.toString());
+      return null;
+    }
     return <UserGate onEnter={name => {
+      localStorage.setItem('termui-last-user', name);
       const url = new URL(location.href);
       url.searchParams.set('user', name);
       location.replace(url.toString());
