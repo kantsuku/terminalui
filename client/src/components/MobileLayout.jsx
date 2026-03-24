@@ -130,7 +130,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }
   }, [sessions.length, activeIdx]);
 
-  // セッション切替時に表情・状態をリセット＆自動ENTERをオフ（PCと同様）
+  // セッション切替時に表情・状態をリセット
   useEffect(() => {
     setIsWorking(false);
     setIsThinking(false);
@@ -140,8 +140,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     clearTimeout(thinkingTimerRef.current);
     clearTimeout(doneTimerRef.current);
     clearTimeout(errorTimerRef.current);
-    setAutoEnter(false);
-    localStorage.setItem(autoEnterKey, 'false');
   }, [activeIdx]);
 
   // 接続完了時に autoEnter 状態をサーバー＆クライアントへ再送
