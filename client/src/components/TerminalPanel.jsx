@@ -94,7 +94,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
           if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
             clientAutoEnterCooldownRef.current = true;
-            setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 8000);
+            setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 5000);
           }
         }, 2000);
       } else if (!enabled) {
@@ -225,7 +225,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
                 if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
                   wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
                   clientAutoEnterCooldownRef.current = true;
-                  setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 8000);
+                  setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 5000);
                 }
               }, 2000);
             }

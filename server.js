@@ -77,6 +77,8 @@ app.use(authMiddleware);
 const clientDist = path.join(__dirname, 'client', 'dist');
 // Assets have content hashes → cache forever
 app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }));
+// アップロード画像を静的配信（/uploads/xxx.png → UPLOAD_DIR/xxx.png）
+app.use('/uploads', express.static(UPLOAD_DIR));
 // /manifest.json は静的ファイルより先にルートで処理（ユーザーのキャラ画像アイコン用）
 app.get('/manifest.json', (req, res) => {
   const userName = req.query.user || 'default';

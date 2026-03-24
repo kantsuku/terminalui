@@ -1,5 +1,32 @@
 import { useState, useEffect } from 'react';
 
+// Shell セッション専用キャラ（固定・設定不可）
+export const TENMA_CHARACTER = {
+  id: 'tenma',
+  name: '天馬博士',
+  accent: '#a0713a',
+  claudePrompt: '',
+  charImgNormal:   '/uploads/1774342012973.png',
+  charImgIdle:     '/uploads/1774342012973.png',
+  charImgWorking:  '/uploads/1774342012973.png',
+  charImgOffline:  '/uploads/1774342012973.png',
+  charImgThinking: '/uploads/1774342012973.png',
+  charImgSuccess:  '/uploads/1774342012973.png',
+  charImgError:    '/uploads/1774342012973.png',
+  idleLines: [
+    '君は僕の子どもだ！',
+    '力を合わせて、世界を平和に！',
+    '君は人間か、それともロボットか？',
+    '科学の力で世界を良くする！',
+    '君にはまだ、学ばなければならない',
+  ],
+  workingLines:  ['科学の力で世界を良くする！', '力を合わせて、世界を平和に！'],
+  offlineLines:  ['君にはまだ、学ばなければならない'],
+  thinkingLines: ['君は人間か、それともロボットか？'],
+  successLines:  ['力を合わせて、世界を平和に！'],
+  errorLines:    ['君は僕の子どもだ！'],
+};
+
 export const DEFAULT_CHARACTER = {
   id: 'default',
   name: 'ラムちゃん',
@@ -192,6 +219,8 @@ export function useSettings(userName = 'default') {
 // セッション名からキャラを取得するヘルパー
 export function getCharForSession(settings, sessionName) {
   const charId = settings.sessionChars?.[sessionName] || settings.defaultCharId;
+  // Shell専用キャラ（固定）
+  if (charId === 'tenma') return TENMA_CHARACTER;
   const byId = settings.characters.find(c => c.id === charId);
   if (byId) return byId;
   // セッション名とキャラ名が一致したら自動マッチ

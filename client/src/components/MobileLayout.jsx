@@ -31,7 +31,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const autoEnterKey = `termui-auto-enter-v2-${userName}`;
   const [autoEnter, setAutoEnter] = useState(() => {
     const stored = localStorage.getItem(`termui-auto-enter-v2-${userName}`);
-    return stored === null ? true : stored === 'true';
+    return stored === null ? false : stored === 'true';
   });
   const [history, setHistory] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
@@ -153,13 +153,16 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     clearTimeout(errorTimerRef.current);
   }, [activeIdx]);
 
+  // Shell セッションは自動OFF固定、Claude セッションはユーザー設定に従う
+  const effectiveAutoEnter = activeSession?.isClaude ? autoEnter : false;
+
   // 接続完了時に autoEnter 状態をサーバー＆クライアントへ再送
   useEffect(() => {
     if (connState === 'connected') {
-      panelRef.current?.setAutoYes(autoEnter);
-      panelRef.current?.setClientAutoEnter(autoEnter);
+      panelRef.current?.setAutoYes(effectiveAutoEnter);
+      panelRef.current?.setClientAutoEnter(effectiveAutoEnter);
     }
-  }, [connState, autoEnter]);
+  }, [connState, effectiveAutoEnter]);
 
   const notify = useCallback((title, body) => {
     if (document.visibilityState === 'visible') return;
@@ -530,9 +533,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             <button className="ml-key ml-key--sm" onClick={() => openHistory()}>履歴</button>
             <div className="ml-key-spacer" />
             <button
-              className={`ml-key ml-key--auto ${autoEnter ? 'active' : ''}`}
+              className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''}`}
+              disabled={!activeSession?.isClaude}
               onPointerDown={e => {
                 e.preventDefault();
+                if (!activeSession?.isClaude) return;
                 const next = !autoEnter;
                 setAutoEnter(next);
                 localStorage.setItem(autoEnterKey, next);
@@ -542,7 +547,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             >
               自動
             </button>
-            <button className={`ml-key ml-key--enter ${autoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
+            <button className={`ml-key ml-key--enter ${effectiveAutoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
               ⏎ Yes
             </button>
           </div>
@@ -591,7 +596,10 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                     {s.lastLine && <div className="ml-drawer-last">{s.lastLine}</div>}
                   </div>
                   <div className="ml-drawer-btns" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                    {(settings.characters?.length > 1) && (
+                    {/* Shell = 天馬博士固定、Claude = キャラ選択可 */}
+                    {(settings.sessionChars?.[s.name] === 'tenma' || (!settings.sessionChars?.[s.name] && !s.isClaude)) ? (
+                      <span style={{ fontSize: 11, color: '#a0713a', padding: '0 4px' }}>天馬博士</span>
+                    ) : (settings.characters?.length > 1) && (
                       <select
                         className="ml-drawer-char-select"
                         value={settings.sessionChars?.[s.name] || settings.defaultCharId || ''}

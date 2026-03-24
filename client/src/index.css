@@ -37,7 +37,7 @@ button {
 }
 button:hover { background: #21262d; border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
-button.primary:hover { background: #00a888; }
+button.primary:hover { filter: brightness(1.15); }
 button.danger { background: transparent; border-color: var(--red); color: var(--red); }
 button.danger:hover { background: #3d1c1c; }
 button.icon {

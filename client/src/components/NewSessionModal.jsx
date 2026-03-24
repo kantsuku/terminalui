@@ -6,7 +6,8 @@ export default function NewSessionModal({ onConfirm, onCancel, characters = [], 
   const [characterId, setCharacterId] = useState(defaultCharId || characters[0]?.id || '');
 
   const handleConfirm = () => {
-    onConfirm({ name: name.trim() || undefined, type, characterId });
+    // Shell は天馬博士固定
+    onConfirm({ name: name.trim() || undefined, type, characterId: type === 'shell' ? 'tenma' : characterId });
   };
 
   return (
@@ -35,7 +36,12 @@ export default function NewSessionModal({ onConfirm, onCancel, characters = [], 
             <span style={{ color: '#d2a8ff' }}>⚡ Claude Code</span>
           </label>
         </div>
-        {characters.length > 1 && (
+        {/* Shell = 天馬博士固定、Claude = キャラ選択 */}
+        {type === 'shell' ? (
+          <div className="row" style={{ alignItems: 'center', gap: 8, color: '#a0713a', fontSize: 13, fontWeight: 600 }}>
+            <span>👨‍🔬 天馬博士（固定）</span>
+          </div>
+        ) : characters.length > 1 && (
           <div className="row">
             <select
               value={characterId}
