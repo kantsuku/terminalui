@@ -356,11 +356,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
 
   const statusInfo = {
-    connecting:   { label: 'うち、つなごうとしてるっちゃ...', cls: 'warn' },
-    connected:    { label: 'つながったっちゃ！',              cls: 'ok'   },
-    reconnecting: { label: 'もっかいやるっちゃ！',            cls: 'warn' },
-    disconnected: { label: 'きれちゃったっちゃ…',            cls: 'err'  },
-    error:        { label: 'エラーだっちゃ！電撃かますっちゃ！', cls: 'err'  },
+    connecting:   { label: activeChar.thinkingLines?.[0]  || '接続中...', cls: 'warn' },
+    connected:    { label: activeChar.idleLines?.[0]      || '接続済み',  cls: 'ok'   },
+    reconnecting: { label: activeChar.thinkingLines?.[1]  || activeChar.thinkingLines?.[0] || '再接続中...', cls: 'warn' },
+    disconnected: { label: activeChar.offlineLines?.[0]   || '切断されました', cls: 'err'  },
+    error:        { label: activeChar.errorLines?.[0]     || 'エラー',    cls: 'err'  },
   }[connState] || { label: connState, cls: 'warn' };
 
   return (
@@ -533,8 +533,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             <button className="ml-key ml-key--sm" onClick={() => openHistory()}>履歴</button>
             <div className="ml-key-spacer" />
             <button
-              className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''}`}
-              disabled={!activeSession?.isClaude}
+              className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''} ${!activeSession?.isClaude ? 'shell-disabled' : ''}`}
               onPointerDown={e => {
                 e.preventDefault();
                 if (!activeSession?.isClaude) return;
@@ -545,7 +544,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                 panelRef.current?.setClientAutoEnter(next);
               }}
             >
-              自動
+              {effectiveAutoEnter ? '自動 ON' : '自動 OFF'}
             </button>
             <button className={`ml-key ml-key--enter ${effectiveAutoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
               ⏎ Yes

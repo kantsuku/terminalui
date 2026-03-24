@@ -170,7 +170,7 @@
 .ml-character-bubble {
   position: absolute;
   right: 12px;
-  top: 10px;
+  bottom: 10px;
   background: #fff;
   border: 2.5px solid #000;
   border-radius: 12px;
@@ -178,26 +178,26 @@
   font-size: 12px;
   font-weight: 700;
   color: #000 !important;
-  max-width: 55%;
-  text-align: right;
+  max-width: calc(100% - 16px);
+  text-align: left;
 }
-/* 漫画吹き出しの尻尾（黒枠） */
+/* 漫画吹き出しの尻尾（黒枠）：左上向き */
 .ml-character-bubble::before {
   content: '';
   position: absolute;
-  right: 14px;
-  bottom: -10px;
+  left: 12px;
+  top: -10px;
   border: 5px solid transparent;
-  border-top-color: #000;
+  border-bottom-color: #000;
 }
-/* 漫画吹き出しの尻尾（白塗り） */
+/* 漫画吹き出しの尻尾（白塗り）：左上向き */
 .ml-character-bubble::after {
   content: '';
   position: absolute;
-  right: 15px;
-  bottom: -7px;
+  left: 13px;
+  top: -7px;
   border: 4px solid transparent;
-  border-top-color: #fff;
+  border-bottom-color: #fff;
 }
 
 /* ══ ステータスバー ══════════════════════════════════════════════════════════ */
@@ -390,14 +390,22 @@
 
 .ml-key--auto {
   font-size: 11px;
+  font-weight: 700;
+  min-width: 58px;
+  padding: 0 8px;
   color: var(--text-muted);
-  min-width: 42px;
-  padding: 0 6px;
+  border-color: #333;
+  background: #111;
 }
 .ml-key--auto.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #000;
+  box-shadow: 0 0 6px var(--accent);
+}
+.ml-key--auto.shell-disabled {
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .ml-key--enter {
@@ -463,7 +471,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--bg2);
+  background: #0a0f0d;
   border-top: 2px solid var(--accent);
   border-radius: 16px 16px 0 0;
   padding: 8px 10px 24px;
