@@ -283,6 +283,56 @@ app.delete('/api/sessions/:name', async (req, res) => {
   }
 });
 
+// セリフ自動生成（Claude API）
+app.post('/api/generate-lines', async (req, res) => {
+  const { charName, claudePrompt } = req.body || {};
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY が設定されていないっちゃ' });
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic.default({ apiKey });
+    const charDesc = claudePrompt
+      ? `キャラクター名: ${charName || 'キャラクター'}\n口調の指示: ${claudePrompt}`
+      : `キャラクター名: ${charName || 'キャラクター'}`;
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: `以下のキャラクター設定に基づいて、各状態のセリフを生成してください。
+
+${charDesc}
+
+各状態について、そのキャラクターらしい短いセリフを5個ずつ生成してください。
+セリフは10〜30文字程度の短いものにしてください。
+
+以下のJSON形式で返してください（他のテキストは不要）:
+{
+  "idleLines": ["セリフ1", "セリフ2", "セリフ3", "セリフ4", "セリフ5"],
+  "workingLines": ["セリフ1", ...],
+  "thinkingLines": ["セリフ1", ...],
+  "successLines": ["セリフ1", ...],
+  "errorLines": ["セリフ1", ...],
+  "offlineLines": ["セリフ1", ...]
+}
+
+状態の意味:
+- idle: 待機中（暇そう、待ってる）
+- working: 作業中（頑張ってる、忙しい）
+- thinking: 考え中（思考中、処理中）
+- success: 完了（やり遂げた、成功）
+- error: エラー（失敗、困った）
+- offline: オフライン（休憩中、寝てる）`,
+      }],
+    });
+    const text = message.content[0]?.text || '';
+    const json = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+    res.json({ ok: true, lines: json });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // アップデート（git pull → npm run build → 再起動）
 app.post('/api/update', async (req, res) => {
   const { exec } = require('child_process');

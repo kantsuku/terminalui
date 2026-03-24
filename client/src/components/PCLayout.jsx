@@ -34,18 +34,10 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const [skillsPopupFor, setSkillsPopupFor] = useState(null);
   const [panelInput, setPanelInput] = useState({});
   const [panelHistory, setPanelHistory] = useState({});
-  const [isWorking,        setIsWorking]        = useState(false);
-  const [isThinking,       setIsThinking]       = useState(false);
-  const [isDone,           setIsDone]           = useState(false);
-  const [isError,          setIsError]          = useState(false);
-  const [charTick,         setCharTick]         = useState(0);
-  const [displayCharState, setDisplayCharState] = useState('idle');
-  const workingTimerRef   = useRef(null);
-  const thinkingTimerRef  = useRef(null);
-  const doneTimerRef      = useRef(null);
-  const errorTimerRef     = useRef(null);
-  const charDebounceRef   = useRef(null);
-  const thinkingSetAtRef  = useRef(null);
+  const [panelCharStates, setPanelCharStates] = useState({});
+  const [panelDisplayStates, setPanelDisplayStates] = useState({});
+  const [charTick, setCharTick] = useState(0);
+  const panelTimers = useRef({});
 
   // キャラ画像切替用タイマー（8秒ごと）
   useEffect(() => {
@@ -64,34 +56,6 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     el.addEventListener('wheel', handler, { passive: true });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  const [, tick] = useState(0);
-
-  // セリフ更新用タイマー
-  const isActive = isWorking || isThinking || isDone || isError;
-  useEffect(() => {
-    const id = setInterval(() => tick(t => t + 1), isActive ? 2000 : 6000);
-    return () => clearInterval(id);
-  }, [isActive]);
-
-  // charState を debounce して表情のちらつきを防ぐ
-  useEffect(() => {
-    const raw = isError    ? 'error'
-      : isDone     ? 'success'
-      : isThinking ? 'thinking'
-      : isWorking  ? 'working'
-      : 'idle';
-
-    const IMMEDIATE = ['error', 'success'];
-    if (IMMEDIATE.includes(raw)) {
-      clearTimeout(charDebounceRef.current);
-      setDisplayCharState(raw);
-    } else {
-      clearTimeout(charDebounceRef.current);
-      charDebounceRef.current = setTimeout(() => setDisplayCharState(raw), 800);
-    }
-    return () => clearTimeout(charDebounceRef.current);
-  }, [isError, isDone, isThinking, isWorking]);
-
   // activeSessions が変わるたびに localStorage に保存
   useEffect(() => {
     localStorage.setItem(activeKey, JSON.stringify(activeSessions));
@@ -102,7 +66,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     if (initializedRef.current || sessions.length === 0) return;
     initializedRef.current = true;
     if (!localStorage.getItem(activeKey)) {
-      setActiveSessions(sessions.slice(0, 4).map(s => s.name));
+      setActiveSessions(sessions.slice(0, 3).map(s => s.name));
     }
   }, [sessions, activeKey]);
 
@@ -121,7 +85,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         setAutoYes(p => { const n = { ...p }; delete n[name]; return n; });
         return prev.filter(n => n !== name);
       }
-      return prev.length < 4 ? [...prev, name] : prev;
+      return prev.length < 3 ? [...prev, name] : prev;
     });
   }, []);
 
@@ -136,76 +100,77 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     }
   }, []);
 
-  const playDoneSound = useCallback(() => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      [0, 150, 300].forEach((delay, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.value = [880, 1108, 1320][i];
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0.15, ctx.currentTime + delay / 1000);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay / 1000 + 0.3);
-        osc.start(ctx.currentTime + delay / 1000);
-        osc.stop(ctx.currentTime + delay / 1000 + 0.3);
-      });
-    } catch {}
-  }, []);
-
-  const activeSessionNamesRef = useRef(activeSessions);
-  activeSessionNamesRef.current = activeSessions;
-
-  const handleActivity = useCallback(() => {
-    // working のみ管理。thinking は handleOutput が管理する
-    setIsWorking(true);
-    clearTimeout(workingTimerRef.current);
-    workingTimerRef.current = setTimeout(() => {
-      setIsWorking(prev => {
-        if (prev) {
-          playDoneSound();
-          notify('⚡ ちゅどーん！できたっちゃ！', `${activeSessionNamesRef.current.join(', ')} うち、やりとげたっちゃよ！`);
-          setIsDone(true);
-          clearTimeout(doneTimerRef.current);
-          doneTimerRef.current = setTimeout(() => setIsDone(false), 3000);
-        }
-        return false;
-      });
-    }, 2000);
-  }, [playDoneSound, notify]);
 
   const THINKING_RE = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒]|[Tt]hinking/;
 
-  const handleOutput = useCallback((data) => {
+  const getTimers = (name) => {
+    if (!panelTimers.current[name]) panelTimers.current[name] = {};
+    return panelTimers.current[name];
+  };
+
+  const IMMEDIATE_STATES = ['error', 'success'];
+  const setDisplayState = (name, state) => {
+    const t = getTimers(name);
+    clearTimeout(t.display);
+    if (IMMEDIATE_STATES.includes(state)) {
+      setPanelDisplayStates(prev => ({ ...prev, [name]: state }));
+    } else {
+      t.display = setTimeout(() => {
+        setPanelDisplayStates(prev => ({ ...prev, [name]: state }));
+      }, 1000);
+    }
+  };
+
+  const handleActivity = useCallback((name) => {
+    const t = getTimers(name);
+    setPanelCharStates(prev => ({ ...prev, [name]: 'working' }));
+    setDisplayState(name, 'working');
+    clearTimeout(t.working);
+    t.working = setTimeout(() => {
+      setPanelCharStates(prev => {
+        if (prev[name] === 'working') {
+          notify('⚡ ちゅどーん！できたっちゃ！', `${name} うち、やりとげたっちゃよ！`);
+          clearTimeout(t.done);
+          setDisplayState(name, 'success');
+          t.done = setTimeout(() => {
+            setPanelCharStates(p => ({ ...p, [name]: 'idle' }));
+            setDisplayState(name, 'idle');
+          }, 3000);
+          return { ...prev, [name]: 'success' };
+        }
+        return prev;
+      });
+    }, 2000);
+  }, [notify]);
+
+  const handleOutput = useCallback((name, data) => {
     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+    const t = getTimers(name);
 
     if (THINKING_RE.test(clean)) {
-      thinkingSetAtRef.current = Date.now();
-      setIsThinking(true);
-      clearTimeout(thinkingTimerRef.current);
-      thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 30000);
-      clearTimeout(workingTimerRef.current);
-      workingTimerRef.current = setTimeout(() => {
-        setIsWorking(false);
-        setIsThinking(false);
-      }, 30000);
+      setPanelCharStates(prev => ({ ...prev, [name]: 'thinking' }));
+      setDisplayState(name, 'thinking');
+      clearTimeout(t.working);
+      clearTimeout(t.thinking);
+      t.thinking = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
+      t.working  = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
       return;
     }
 
-    setIsThinking(false);
-    clearTimeout(thinkingTimerRef.current);
-
     if (/\bError:|error:|\bfailed to\b|✗ /.test(clean)) {
-      setIsError(true);
-      clearTimeout(errorTimerRef.current);
-      errorTimerRef.current = setTimeout(() => setIsError(false), 5000);
+      setPanelCharStates(prev => ({ ...prev, [name]: 'error' }));
+      setDisplayState(name, 'error');
+      clearTimeout(t.error);
+      t.error = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 5000);
     }
-  }, []);
+  }, [notify]);
 
-  const handleInput = useCallback(() => {
-    setIsThinking(true);
-    clearTimeout(thinkingTimerRef.current);
-    thinkingTimerRef.current = setTimeout(() => setIsThinking(false), 15000);
+  const handleInput = useCallback((name) => {
+    const t = getTimers(name);
+    setPanelCharStates(prev => ({ ...prev, [name]: 'thinking' }));
+    setDisplayState(name, 'thinking');
+    clearTimeout(t.thinking);
+    t.thinking = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 15000);
   }, []);
 
   const handleCreate = useCallback(async ({ name, type, characterId }) => {
@@ -219,12 +184,11 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         onSaveSettings?.({ sessionChars: newSessionChars });
       }
       await fetchSessions();
-      setActiveSessions(prev => prev.length < 4 ? [...prev, res.name] : prev);
+      setActiveSessions(prev => prev.length < 3 ? [...prev, res.name] : prev);
     }
   }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
   const handleKill = useCallback(async (name) => {
-    if (!confirm(`"${name}" を終了しますか？`)) return;
     await killSession(name);
   }, [killSession]);
 
@@ -258,31 +222,6 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     dragSrcRef.current = null;
   }, [activeKey]);
 
-  // キャラクター（フォーカス中のセッション or デフォルト）
-  const focusedSession = activeSessions[0] || '';
-  const activeChar = getCharForSession(settings, focusedSession);
-  const charState = displayCharState;
-  const normalImg = activeChar.charImgNormal || null;
-  const cycleToNormal = normalImg && charTick % 2 === 1;
-  const fallback = normalImg || activeChar.charImgIdle || null;
-  const charSrcMap = {
-    error:    activeChar.charImgError    || fallback,
-    success:  activeChar.charImgSuccess  || fallback,
-    thinking: activeChar.charImgThinking || fallback,
-    working:  cycleToNormal ? normalImg : (activeChar.charImgWorking  || fallback),
-    idle:     cycleToNormal ? normalImg : (activeChar.charImgIdle     || fallback),
-  };
-  const linesMap = {
-    error:    activeChar.errorLines    || [],
-    success:  activeChar.successLines  || [],
-    thinking: activeChar.thinkingLines || [],
-    working:  activeChar.workingLines  || [],
-    idle:     activeChar.idleLines     || [],
-  };
-  const intervalMap = { error: 7000, success: 5000, thinking: 8000, working: 8000, idle: 12000 };
-  const charSrc = charSrcMap[charState];
-  const lines   = linesMap[charState];
-  const speech  = lines.length ? lines[Math.floor(Date.now() / intervalMap[charState]) % lines.length] : '';
 
   return (
     <div className="pc-layout">
@@ -290,21 +229,9 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
       {/* ── 左カラム ── */}
       <aside className="sidebar">
 
-        {/* キャラクターエリア */}
-        <div className={`sidebar-character sidebar-character--${charState}`}>
-          <img
-            key={charSrc}
-            src={charSrc}
-            alt=""
-            className="sidebar-character-img"
-            onError={e => { e.target.src = '/character.png'; e.target.onerror = null; }}
-          />
-          {speech && <div className="sidebar-bubble">{speech}</div>}
-        </div>
-
         {/* ヘッダー */}
         <div className="sidebar-header">
-          <span className="logo">{activeChar.name || 'ラムちゃん'}</span>
+          <span className="logo">⚡ Terminal UI</span>
           {userName !== 'default' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{userName}</span>}
           <button className="icon" title="QR" onClick={() => setShowQR(true)}>QR</button>
           <button className="icon" title="設定" onClick={onOpenSettings}>⚙</button>
@@ -313,7 +240,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         {/* セッション一覧 */}
         <div className="sidebar-section-title">
           SESSIONS
-          <span className="sidebar-count">{activeSessions.length} / 4</span>
+          <span className="sidebar-count">{activeSessions.length} / 3</span>
         </div>
         <div className="session-list">
           {sessions.length === 0 && <div className="empty-msg">セッションなし</div>}
@@ -359,7 +286,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         {count === 0 ? (
           <div className="panel-empty" style={{ flex: 1 }}>
             <div>左のセッション一覧をクリックして表示するっちゃ！</div>
-            <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>最大4セッション同時表示</div>
+            <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>最大3セッション同時表示</div>
           </div>
         ) : (
           <div
@@ -381,10 +308,47 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                   onDragStart={() => handleDragStart(name)}
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => handleDrop(name)}
+                  style={(() => {
+                    const accent = getCharForSession(settings, name).accent || '#00d4aa';
+                    return {
+                      '--panel-accent': accent,
+                      '--panel-bg':     `${accent}0a`,
+                      '--panel-bg3':    `${accent}18`,
+                    };
+                  })()}
                 >
                   <div className="panel-header" style={{ cursor: 'grab' }}>
-                    <span className="panel-title">{name}</span>
-                    <button className="icon danger" title="パネルを閉じる" onClick={() => setActiveSessions(p => p.filter(n => n !== name))}>✕</button>
+                    {(() => {
+                      const panelChar = getCharForSession(settings, name);
+                      const state = panelDisplayStates[name] || 'idle';
+                      const cycleNormal = panelChar.charImgNormal && charTick % 2 === 1;
+                      const fallback = panelChar.charImgNormal || panelChar.charImgIdle || null;
+                      const src = {
+                        error:    panelChar.charImgError    || fallback,
+                        success:  panelChar.charImgSuccess  || fallback,
+                        thinking: panelChar.charImgThinking || fallback,
+                        working:  cycleNormal ? panelChar.charImgNormal : (panelChar.charImgWorking || fallback),
+                        idle:     cycleNormal ? panelChar.charImgNormal : (panelChar.charImgIdle    || fallback),
+                      }[state];
+                      const statusLabel = { idle: '待機中', working: '作業中', thinking: '考え中', success: '完了！', error: 'エラー' }[state];
+                      const statusColor = { idle: 'var(--text-muted)', working: 'var(--accent)', thinking: '#d2a8ff', success: '#3fb950', error: '#f85149' }[state];
+                      const intervalMap = { error: 7000, success: 5000, thinking: 8000, working: 8000, idle: 12000 };
+                      const lines = ({
+                        error: panelChar.errorLines, success: panelChar.successLines,
+                        thinking: panelChar.thinkingLines, working: panelChar.workingLines, idle: panelChar.idleLines,
+                      }[state]) || [];
+                      const speech = lines.length ? lines[Math.floor(Date.now() / intervalMap[state]) % lines.length] : '';
+                      return (<>
+                        {src && <img key={src} src={src} alt="" className={`panel-char-avatar panel-char-avatar--${state}`} />}
+                        {speech && <div className="panel-char-speech">{speech}</div>}
+                        <div className="panel-char-info">
+                          <div className="panel-char-session">{name}</div>
+                          <div className="panel-char-status" style={{ color: statusColor }}>{statusLabel}</div>
+                          <div className="panel-char-name">{panelChar.name || '—'}</div>
+                        </div>
+                        <button className="icon danger" style={{ alignSelf: 'flex-start', margin: '6px 6px 0 0', cursor: 'pointer' }} title="パネルを閉じる" onClick={e => { e.stopPropagation(); setActiveSessions(p => p.filter(n => n !== name)); }}>✕</button>
+                      </>);
+                    })()}
                   </div>
                   <div className="panel-body">
                     <TerminalPanel
@@ -392,9 +356,10 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       sessionName={name}
                       mobile={false}
                       ntfyTopic={settings.ntfyTopic || ''}
-                      onActivity={handleActivity}
-                      onOutput={handleOutput}
-                      onInput={handleInput}
+                      accentColor={getCharForSession(settings, name).accent || '#00d4aa'}
+                      onActivity={() => handleActivity(name)}
+                      onOutput={(data) => handleOutput(name, data)}
+                      onInput={() => handleInput(name)}
                       onConnStateChange={state => {
                         if (state === 'connected') {
                           const sType = sessions.find(s => s.name === name)?.type;

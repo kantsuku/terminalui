@@ -11,7 +11,7 @@ export default function NewSessionModal({ onConfirm, onCancel, characters = [], 
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ touchAction: 'manipulation' }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ touchAction: 'manipulation', background: '#0f1a16', border: '1px solid #1e3d2f' }}>
         <h3>新規セッション</h3>
         <div className="row">
           <input

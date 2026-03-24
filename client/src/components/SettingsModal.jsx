@@ -57,6 +57,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [tab, setTab] = useState('character');
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateMsg, setUpdateMsg] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   // キャラクター一覧の編集用ローカルコピー
   const [characters, setCharacters] = useState(() =>
@@ -286,7 +287,40 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {/* ── セリフタブ ── */}
           {tab === 'lines' && (
             <div className="sm-section">
-              <p className="sm-hint">1行につき1セリフ。空行は無視されるっちゃ。</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <p className="sm-hint" style={{ margin: 0 }}>1行につき1セリフ。空行は無視されるっちゃ。</p>
+                <button
+                  className="primary"
+                  style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}
+                  disabled={generating}
+                  onClick={async () => {
+                    setGenerating(true);
+                    try {
+                      const res = await fetch('/api/generate-lines', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ charName: selectedChar.name, claudePrompt: selectedChar.claudePrompt }),
+                      });
+                      const data = await res.json();
+                      if (data.ok && data.lines) {
+                        updateChar({
+                          idleLines:    data.lines.idleLines    || selectedChar.idleLines,
+                          workingLines: data.lines.workingLines || selectedChar.workingLines,
+                          thinkingLines:data.lines.thinkingLines|| selectedChar.thinkingLines,
+                          successLines: data.lines.successLines || selectedChar.successLines,
+                          errorLines:   data.lines.errorLines   || selectedChar.errorLines,
+                          offlineLines: data.lines.offlineLines || selectedChar.offlineLines,
+                        });
+                      } else {
+                        alert(data.error || '生成失敗っちゃ');
+                      }
+                    } catch { alert('通信エラーっちゃ'); }
+                    finally { setGenerating(false); }
+                  }}
+                >
+                  {generating ? '生成中…' : '✨ AIで自動生成'}
+                </button>
+              </div>
               {[
                 { label: '待機中セリフ',     key: 'idleLines',     def: DEFAULT_CHARACTER.idleLines },
                 { label: '作業中セリフ',     key: 'workingLines',  def: DEFAULT_CHARACTER.workingLines },

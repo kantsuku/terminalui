@@ -100,6 +100,13 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
   // アクティブセッションのキャラを取得
   const activeChar = getCharForSession(settings, activeSession?.name || '');
+  const accent = activeChar.accent || '#00d4aa';
+
+  // bodyの背景もキャラ色に合わせる（セーフエリア外の隙間対策）
+  useEffect(() => {
+    document.body.style.background = accent + '18';
+    return () => { document.body.style.background = ''; };
+  }, [accent]);
 
   const openHistory = useCallback(async () => {
     if (!activeSession) return;
@@ -258,10 +265,12 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     try {
       const res = await createSession({ name, type, systemPrompt });
       if (res?.name) {
-        // セッション↔キャラ紐づけを保存
+        // セッション↔キャラ紐づけを保存（先に保存してからセッション切替）
         if (characterId) {
           const newSessionChars = { ...(settings.sessionChars || {}), [res.name]: characterId };
           onSaveSettings?.({ sessionChars: newSessionChars });
+          // React stateが更新されるまで1tick待つ
+          await new Promise(r => setTimeout(r, 50));
         }
         // セッション起動直後は tmux に反映されるまで少し待つ
         await new Promise(r => setTimeout(r, 800));
@@ -274,13 +283,13 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     } catch (e) {
       alert(`セッション作成エラーっちゃ: ${e.message}`);
     }
-  }, [createSession, fetchSessions, settings.claudePrompt]);
+  }, [createSession, fetchSessions, settings.characters, settings.sessionChars]);
 
   const handleKill = useCallback(async (name) => {
-    if (!confirm(`"${name}" を終了しますか？`)) return;
     await killSession(name);
     setShowDrawer(false);
-  }, [killSession]);
+    fetchSessions();
+  }, [killSession, fetchSessions]);
 
   const handleRename = useCallback(async (newName) => {
     await renameSession(renaming.name, newName);
@@ -346,7 +355,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
   return (
     <>
-    <div className="ml-root" style={{ position: 'relative' }}>
+    <div className="ml-root" style={{ position: 'relative', '--accent': accent, '--accent-dim': accent + '18', '--bg2': accent + '0d', '--bg3': accent + '18', '--border': accent + '40' }}>
 
       {/* ヘッダー */}
       <header className="ml-header">
@@ -403,7 +412,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         };
         const intervalMap = { offline: 15000, error: 7000, success: 5000, thinking: 8000, working: 8000, idle: 12000 };
         const src   = charSrcMap[charState];
-        const lines = linesMap[charState];
+        const lines = linesMap[charState].length ? linesMap[charState] : (linesMap['idle'] || []);
         const iv    = intervalMap[charState];
         const speech = lines.length ? lines[Math.floor(Date.now() / iv) % lines.length] : '';
         if (!src) return null;
@@ -449,6 +458,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             sessionName={activeSession.name}
             mobile={true}
             ntfyTopic={settings.ntfyTopic || ''}
+            accentColor={accent}
             onConnStateChange={setConnState}
             onActivity={handleActivity}
             onOutput={handleOutput}
@@ -549,6 +559,9 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         </div>
       )}
 
+      {/* iOSセーフエリア（入力エリアの下） */}
+      <div style={{ flexShrink: 0, height: 'env(safe-area-inset-bottom, 0px)', background: accent + '18' }} />
+
       {/* ドロワー */}
       {showDrawer && (
         <div className="ml-backdrop" onPointerDown={() => setShowDrawer(false)}>
@@ -562,14 +575,15 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                 <div
                   key={s.name}
                   className={`ml-drawer-item ${i === activeIdx ? 'active' : ''}`}
-                  onPointerDown={() => { setActiveIdx(i); setShowDrawer(false); }}
+                  style={{ touchAction: 'manipulation' }}
+                  onClick={() => { setActiveIdx(i); setShowDrawer(false); }}
                 >
                   <span className={`dot ${statusClass(s)}`} />
                   <div className="ml-drawer-info">
                     <div className="ml-drawer-name">{s.name}</div>
                     {s.lastLine && <div className="ml-drawer-last">{s.lastLine}</div>}
                   </div>
-                  <div className="ml-drawer-btns" onPointerDown={e => e.stopPropagation()}>
+                  <div className="ml-drawer-btns" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                     {(settings.characters?.length > 1) && (
                       <select
                         className="ml-drawer-char-select"
@@ -578,15 +592,14 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                           const newSessionChars = { ...(settings.sessionChars || {}), [s.name]: e.target.value };
                           onSaveSettings?.({ sessionChars: newSessionChars });
                         }}
-                        onPointerDown={e => e.stopPropagation()}
                       >
                         {settings.characters.map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>
                     )}
-                    <button className="icon" onPointerDown={() => { setRenaming({ name: s.name }); setShowDrawer(false); }}>✎</button>
-                    <button className="icon danger" onPointerDown={() => handleKill(s.name)}>✕</button>
+                    <button className="icon" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setRenaming({ name: s.name }); setShowDrawer(false); }}>✎</button>
+                    <button className="icon danger" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); handleKill(s.name); }}>✕</button>
                   </div>
                 </div>
               ))}

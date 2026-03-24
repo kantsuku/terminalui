@@ -16,31 +16,40 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
-const TERM_THEME = {
+const BASE_THEME = {
   background:   '#0a0f0d',
   foreground:   '#e6edf3',
-  cursor:       '#00d4aa',
-  selectionBackground: '#0a3d2a',
   black:        '#0a0f0d',
   red:          '#f85149',
-  green:        '#00d4aa',
   yellow:       '#ffd700',
-  blue:         '#00d4aa',
   magenta:      '#bc8cff',
-  cyan:         '#00d4aa',
   white:        '#e6edf3',
   brightBlack:  '#7a9e8a',
   brightRed:    '#ff7b72',
-  brightGreen:  '#00ffcc',
   brightYellow: '#ffe44d',
-  brightBlue:   '#4dffd4',
   brightMagenta:'#d2a8ff',
-  brightCyan:   '#4dffd4',
   brightWhite:  '#f0f6fc',
 };
 
+function makeTheme(accent) {
+  const a = accent || '#00d4aa';
+  // brightGreen/brightBlue/brightCyan を accent の明るめ版に
+  const bright = a + 'cc';
+  return {
+    ...BASE_THEME,
+    cursor:             a,
+    selectionBackground: a + '33',
+    green:              a,
+    blue:               a,
+    cyan:               a,
+    brightGreen:        bright,
+    brightBlue:         bright,
+    brightCyan:         bright,
+  };
+}
+
 const TerminalPanel = forwardRef(function TerminalPanel(
-  { sessionName, mobile = false, active = true, ntfyTopic = '', onConnStateChange, onActivity, onOutput, onInput },
+  { sessionName, mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput },
   ref
 ) {
   const containerRef = useRef(null);
@@ -143,7 +152,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     if (!sessionName || !containerRef.current || !active) return;
 
     const term = new Terminal({
-      theme: TERM_THEME,
+      theme: makeTheme(accentColor),
       fontSize: mobile ? 13 : 12,
       fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", monospace',
       lineHeight: 1.2,

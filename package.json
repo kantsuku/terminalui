@@ -11,6 +11,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "dotenv": "^17.3.1",
     "express": "^4.19.2",

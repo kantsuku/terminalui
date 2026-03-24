@@ -192,5 +192,10 @@ export function useSettings(userName = 'default') {
 // セッション名からキャラを取得するヘルパー
 export function getCharForSession(settings, sessionName) {
   const charId = settings.sessionChars?.[sessionName] || settings.defaultCharId;
-  return settings.characters.find(c => c.id === charId) || settings.characters[0] || DEFAULT_CHARACTER;
+  const byId = settings.characters.find(c => c.id === charId);
+  if (byId) return byId;
+  // セッション名とキャラ名が一致したら自動マッチ
+  const lower = (sessionName || '').toLowerCase();
+  const byName = settings.characters.find(c => c.name && c.name.toLowerCase() === lower);
+  return byName || settings.characters[0] || DEFAULT_CHARACTER;
 }
