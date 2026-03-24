@@ -155,6 +155,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
     let mounted = true;
     let reconnectTimeout = null;
+    let initTimer = null;
 
     const connect = () => {
       if (!mounted) return;
@@ -163,6 +164,13 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       const ws = new WebSocket(`${proto}//${location.host}/ws`);
       wsRef.current = ws;
       updateState('connecting');
+
+      let isInitializing = true;
+      clearTimeout(initTimer);
+      initTimer = setTimeout(() => {
+        isInitializing = false;
+        if (scrollLocked) term.scrollToBottom();
+      }, 400);
 
       ws.onopen = () => {
         updateState('connected');
@@ -185,7 +193,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         try { msg = JSON.parse(e.data); } catch { return; }
         switch (msg.type) {
           case 'output': {
-            term.write(msg.data, scrollLocked ? () => term.scrollToBottom() : undefined);
+            term.write(msg.data, (scrollLocked && !isInitializing) ? () => term.scrollToBottom() : undefined);
             onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
             if (clientAutoEnterRef.current && !clientAutoEnterCooldown) {
@@ -245,6 +253,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     return () => {
       mounted = false;
       clearTimeout(reconnectTimeout);
+      clearTimeout(initTimer);
       ro.disconnect();
       containerRef.current?.removeEventListener('wheel', wheelHandler, { capture: true });
       wsRef.current?.close();
