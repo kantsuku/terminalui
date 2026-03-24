@@ -285,7 +285,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       termRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionName, mobile, active]);
+  }, [sessionName, mobile, active, accentColor]);
 
   const stateColor = {
     connecting:   '#d29922',

@@ -197,7 +197,13 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     setRenaming(null);
     await renameSession(old, newName);
     setActiveSessions(prev => prev.map(n => n === old ? newName : n));
-  }, [renaming, renameSession]);
+    // sessionChars のキーも更新
+    if (settings.sessionChars?.[old]) {
+      const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[old] };
+      delete updated[old];
+      onSaveSettings?.({ sessionChars: updated });
+    }
+  }, [renaming, renameSession, settings.sessionChars, onSaveSettings]);
 
   // グリッドレイアウト（常に横並び）
   const count = activeSessions.length;

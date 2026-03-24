@@ -283,7 +283,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     } catch (e) {
       alert(`セッション作成エラーっちゃ: ${e.message}`);
     }
-  }, [createSession, fetchSessions, settings.characters, settings.sessionChars]);
+  }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
   const handleKill = useCallback(async (name) => {
     await killSession(name);
@@ -292,9 +292,16 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   }, [killSession, fetchSessions]);
 
   const handleRename = useCallback(async (newName) => {
-    await renameSession(renaming.name, newName);
+    const oldName = renaming.name;
+    await renameSession(oldName, newName);
     setRenaming(null);
-  }, [renaming, renameSession]);
+    // sessionChars のキーも更新
+    if (settings.sessionChars?.[oldName]) {
+      const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[oldName] };
+      delete updated[oldName];
+      onSaveSettings?.({ sessionChars: updated });
+    }
+  }, [renaming, renameSession, settings.sessionChars, onSaveSettings]);
 
   const touchStart = useRef(null);
   const onTouchStart = (e) => {
