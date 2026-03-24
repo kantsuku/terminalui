@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const os = require('os');
 
+const { execSync } = require('child_process');
 const { listSessions, createSession, killSession, sessionExists, renameSession } = require('./lib/tmux');
 const { attachSession } = require('./lib/ptyManager');
 
@@ -132,6 +133,12 @@ function settingsPath(userName) {
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file' });
   const urlPath = `/uploads/${req.file.filename}`;
+  // アップロード後に自動gitコミット（バックグラウンドで実行、失敗しても無視）
+  try {
+    execSync(`git add uploads/ && git commit -m "chore: upload image ${req.file.filename}"`, {
+      cwd: __dirname, stdio: 'ignore'
+    });
+  } catch {}
   res.json({ path: urlPath });
 });
 
