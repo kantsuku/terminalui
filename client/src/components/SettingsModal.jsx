@@ -64,6 +64,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [tab, setTab] = useState('character');
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateMsg, setUpdateMsg] = useState('');
+  const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [generating, setGenerating] = useState(false);
 
   // キャラクター一覧の編集用ローカルコピー
@@ -356,6 +357,32 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
               <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届くっちゃ。</p>
               <input className="sm-input" value={ntfyTopic} onChange={e => setNtfyTopic(e.target.value)}
                 placeholder="例: termui-yourname-abc123" />
+
+              <label className="sm-label" style={{ marginTop: 20 }}>キャラクター配布</label>
+              <p className="sm-hint">現在のキャラクター設定（画像・セリフ含む）を全ユーザーに反映するっちゃ。</p>
+              <button className="primary" style={{ width: '100%', padding: '10px', fontSize: 14 }}
+                disabled={broadcastStatus === 'loading'}
+                onClick={async () => {
+                  if (!confirm('全ユーザーにキャラクター設定を反映しますか？')) return;
+                  setBroadcastStatus('loading');
+                  try {
+                    const res = await fetch('/api/broadcast-characters', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ characters }),
+                    });
+                    const data = await res.json();
+                    if (data.ok) {
+                      setBroadcastStatus('done');
+                      setTimeout(() => setBroadcastStatus(null), 3000);
+                    } else {
+                      alert(data.error || '反映失敗');
+                      setBroadcastStatus(null);
+                    }
+                  } catch { alert('通信エラー'); setBroadcastStatus(null); }
+                }}>
+                {broadcastStatus === 'loading' ? '反映中…' : broadcastStatus === 'done' ? '反映完了！' : '📢 全ユーザーに反映'}
+              </button>
 
               <label className="sm-label" style={{ marginTop: 20 }}>アップデート</label>
               <p className="sm-hint">GitHubから最新版を取得してビルド・再起動するっちゃ。</p>

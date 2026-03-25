@@ -165,9 +165,18 @@ app.get('/api/user-settings/:userName', (req, res) => {
   try {
     const p = settingsPath(req.params.userName);
     if (fs.existsSync(p)) return res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
-    // ユーザー設定がなければ _default.json にフォールバック
+    // ユーザー設定がなければテンプレートから作成
+    // _default.json → 既存ユーザーの設定の順でフォールバック
     const defaultP = settingsPath('_default');
     if (fs.existsSync(defaultP)) return res.json(JSON.parse(fs.readFileSync(defaultP, 'utf8')));
+    // 既存ユーザー設定からキャラ一覧をコピー
+    const files = fs.readdirSync(SETTINGS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('_'));
+    for (const f of files) {
+      try {
+        const tmpl = JSON.parse(fs.readFileSync(path.join(SETTINGS_DIR, f), 'utf8'));
+        if (tmpl.characters?.length > 0) return res.json(tmpl);
+      } catch {}
+    }
     res.json(null);
   } catch { res.json(null); }
 });
@@ -180,6 +189,35 @@ app.post('/api/user-settings/:userName', async (req, res) => {
     if (!req.query._sync) {
       syncToServers(`/api/user-settings/${encodeURIComponent(req.params.userName)}`, req.body);
     }
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// キャラクター設定を全ユーザーに配布
+app.post('/api/broadcast-characters', (req, res) => {
+  try {
+    const { characters } = req.body || {};
+    if (!characters?.length) return res.status(400).json({ error: 'characters が空っちゃ' });
+    const files = fs.readdirSync(SETTINGS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('_'));
+    let updated = 0;
+    for (const f of files) {
+      try {
+        const p = path.join(SETTINGS_DIR, f);
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (!data.characters) continue;
+        // 送信元のキャラを全てマージ（IDで既存を上書き、なければ追加）
+        for (const src of characters) {
+          const idx = data.characters.findIndex(c => c.id === src.id);
+          if (idx >= 0) {
+            data.characters[idx] = src;
+          } else {
+            data.characters.push(src);
+          }
+        }
+        fs.writeFileSync(p, JSON.stringify(data, null, 2));
+        updated++;
+      } catch {}
+    }
+    res.json({ ok: true, updated });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
