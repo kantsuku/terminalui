@@ -15,6 +15,7 @@ const SKILLS = [
   { label: 'git diff',       cmd: 'git --no-pager diff\r',      desc: 'ファイルの中身がどう変わったか確認する' },
   { label: 'clasp push',     cmd: 'clasp push\r',               desc: 'GASのコードをGoogle Driveにプッシュする' },
   { label: '中断',           cmd: '\x1b',                       desc: 'Escキーを送信して処理を中断する' },
+  { label: 'gh repos',       cmd: 'gh repo list kantsuku --limit 30\r', desc: 'kantsukuのGitHubリポジトリ一覧を表示する' },
   { label: '/design-view',   cmd: '/design-view\r',             desc: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェック' },
   { label: '/propose',       cmd: '/propose\r',                 desc: 'UX・機能・パフォーマンスなど改善案をAIが提案する' },
   { label: '/health-check',  cmd: '/health-check\r',            desc: 'クラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出す' },
@@ -522,23 +523,26 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             <button className="ml-key ml-key--sm" onClick={() => panelRef.current?.copySelection()}>コピー</button>
             <button className="ml-key ml-key--sm" onClick={() => openHistory()}>履歴</button>
             <div className="ml-key-spacer" />
-            <button
-              className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''} ${!activeSession?.isClaude ? 'shell-disabled' : ''}`}
-              onPointerDown={e => {
-                e.preventDefault();
-                if (!activeSession?.isClaude) return;
-                const next = !autoEnter;
-                setAutoEnter(next);
-                localStorage.setItem(autoEnterKey, next);
-                panelRef.current?.setAutoYes(next);
-                panelRef.current?.setClientAutoEnter(next);
-              }}
-            >
-              {effectiveAutoEnter ? '自動 ON' : '自動 OFF'}
-            </button>
-            <button className={`ml-key ml-key--enter ${effectiveAutoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
-              ⏎ Yes
-            </button>
+            {activeSession?.isClaude && (
+              <>
+                <button
+                  className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''}`}
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    const next = !autoEnter;
+                    setAutoEnter(next);
+                    localStorage.setItem(autoEnterKey, next);
+                    panelRef.current?.setAutoYes(next);
+                    panelRef.current?.setClientAutoEnter(next);
+                  }}
+                >
+                  {effectiveAutoEnter ? '自動 ON' : '自動 OFF'}
+                </button>
+                <button className={`ml-key ml-key--enter ${effectiveAutoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
+                  ⏎ Yes
+                </button>
+              </>
+            )}
           </div>
           {/* テキスト入力行 */}
           <div className="ml-input-row">

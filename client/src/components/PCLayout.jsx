@@ -15,6 +15,7 @@ const SKILLS = [
   { label: 'git diff',      cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
   { label: 'clasp push',    cmd: 'clasp push\r',          desc: 'GASのコードをGoogle Driveにプッシュする' },
   { label: '中断',          cmd: '\x1b',                  desc: 'Escキーを送信して処理を中断する' },
+  { label: 'gh repos',      cmd: 'gh repo list kantsuku --limit 30\r', desc: 'kantsukuのGitHubリポジトリ一覧を表示する' },
   { label: '/design-view',  cmd: '/design-view\r',        desc: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェック' },
   { label: '/propose',      cmd: '/propose\r',            desc: 'UX・機能・パフォーマンスなど改善案をAIが提案する' },
   { label: '/health-check', cmd: '/health-check\r',       desc: 'クラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出す' },
@@ -307,7 +308,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
           >
             {activeSessions.map(name => {
               const sessionType = sessions.find(s => s.name === name)?.type;
-              const defaultAy = sessionType !== 'shell';
+              const isShell = sessionType === 'shell' || !sessions.find(s => s.name === name)?.isClaude;
+              const defaultAy = !isShell;
               const ay = autoYes[name] ?? defaultAy;
               return (
                 <div
@@ -372,8 +374,9 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       onInput={() => handleInput(name)}
                       onConnStateChange={state => {
                         if (state === 'connected') {
-                          const sType = sessions.find(s => s.name === name)?.type;
-                          const enabled = autoYes[name] ?? (sType !== 'shell');
+                          const s = sessions.find(s => s.name === name);
+                          const shell = s?.type === 'shell' || !s?.isClaude;
+                          const enabled = shell ? false : (autoYes[name] ?? true);
                           panelRefs.current[name]?.setAutoYes(enabled);
                           panelRefs.current[name]?.setClientAutoEnter(enabled);
                         }
@@ -409,23 +412,27 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       setPanelHistory(p => ({ ...p, [name]: data.content || '' }));
                     }}>履歴</button>
                     <div style={{ flex: 1 }} />
-                    <button
-                      className={`panel-ctrl-big ${ay ? 'active' : ''}`}
-                      onClick={() => {
-                        const next = !ay;
-                        setAutoYes(p => ({ ...p, [name]: next }));
-                        panelRefs.current[name]?.setAutoYes(next);
-                        panelRefs.current[name]?.setClientAutoEnter(next);
-                      }}
-                    >
-                      自動
-                    </button>
-                    <button
-                      className={`panel-ctrl-big panel-ctrl-yes primary${ay ? ' dimmed' : ''}`}
-                      onClick={() => panelRefs.current[name]?.sendKey('\r')}
-                    >
-                      ⏎ Yes
-                    </button>
+                    {!isShell && (
+                      <>
+                        <button
+                          className={`panel-ctrl-big ${ay ? 'active' : ''}`}
+                          onClick={() => {
+                            const next = !ay;
+                            setAutoYes(p => ({ ...p, [name]: next }));
+                            panelRefs.current[name]?.setAutoYes(next);
+                            panelRefs.current[name]?.setClientAutoEnter(next);
+                          }}
+                        >
+                          自動
+                        </button>
+                        <button
+                          className={`panel-ctrl-big panel-ctrl-yes primary${ay ? ' dimmed' : ''}`}
+                          onClick={() => panelRefs.current[name]?.sendKey('\r')}
+                        >
+                          ⏎ Yes
+                        </button>
+                      </>
+                    )}
                   </div>
                   {/* テキスト入力行 */}
                   <div className="panel-input-row">
