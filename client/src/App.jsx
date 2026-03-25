@@ -67,28 +67,30 @@ function AuthGate({ onAuth }) {
 
 function UserGate({ onEnter }) {
   const [name, setName] = useState('');
+  const invalid = name.length > 0 && !/^[a-zA-Z0-9_-]+$/.test(name);
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       height: '100vh', background: 'var(--bg)', gap: 16,
     }}>
       <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>⚡ Terminal UI</div>
-      <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>あなたの名前を入れてっちゃ！</div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>あなたの名前を入れてっちゃ！（英数字・_・- のみ）</div>
       <input
         autoFocus
         value={name}
         onChange={e => setName(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onEnter(name.trim()); }}
+        onKeyDown={e => { if (e.key === 'Enter' && name.trim() && !invalid) onEnter(name.trim()); }}
         placeholder="例: alice"
         style={{
-          background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8,
+          background: 'var(--bg2)', border: `1px solid ${invalid ? '#f85149' : 'var(--border)'}`, borderRadius: 8,
           color: 'var(--text)', padding: '10px 16px', fontSize: 16, width: 220, outline: 'none',
         }}
       />
+      {invalid && <div style={{ color: '#f85149', fontSize: 12 }}>英数字・_・- だけ使えるっちゃ！</div>}
       <button
         className="primary"
         style={{ padding: '10px 32px', fontSize: 14, borderRadius: 8 }}
-        onClick={() => { if (name.trim()) onEnter(name.trim()); }}
+        onClick={() => { if (name.trim() && !invalid) onEnter(name.trim()); }}
       >
         入る
       </button>
@@ -205,7 +207,10 @@ export default function App() {
     return <AuthGate onAuth={() => setAuthState('ok')} />;
   }
 
-  if (!urlUser) {
+  // 英数字・_・- 以外を含むユーザー名は無効としてUserGateに戻す
+  const safeUrlUser = urlUser && /^[a-zA-Z0-9_-]+$/.test(urlUser) ? urlUser : null;
+
+  if (!safeUrlUser) {
     const savedUser = localStorage.getItem('termui-last-user');
     if (savedUser) {
       const url = new URL(location.href);
@@ -221,5 +226,5 @@ export default function App() {
     }} />;
   }
 
-  return <AppMain userName={urlUser} />;
+  return <AppMain userName={safeUrlUser} />;
 }
