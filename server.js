@@ -343,17 +343,28 @@ ${charDesc}
   }
 });
 
-// アップデート（git pull → npm run build → 再起動）
+// アップデート（git pull → npm install → npm run build → 再起動）
 app.post('/api/update', async (req, res) => {
   const { exec } = require('child_process');
   const { promisify } = require('util');
   const execAsync = promisify(exec);
   const dir = __dirname;
   try {
-    const pull = await execAsync('git pull', { cwd: dir });
-    const build = await execAsync('npm run build', { cwd: dir });
-    res.json({ ok: true, pull: pull.stdout.trim(), build: build.stdout.trim() });
-    setTimeout(() => process.exit(0), 500);
+    const pull    = await execAsync('git pull', { cwd: dir });
+    const install = await execAsync('npm install', { cwd: dir });
+    const build   = await execAsync('npm run build', { cwd: dir });
+    res.json({ ok: true, pull: pull.stdout.trim(), install: install.stdout.trim(), build: build.stdout.trim() });
+    // launchd経由なら launchctl で再起動、なければ process.exit で再起動
+    setTimeout(async () => {
+      try {
+        const plist = `${os.homedir()}/Library/LaunchAgents/com.terminalui.server.plist`;
+        if (require('fs').existsSync(plist)) {
+          await execAsync(`launchctl unload ${plist} && launchctl load ${plist}`);
+        } else {
+          process.exit(0);
+        }
+      } catch { process.exit(0); }
+    }, 500);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
