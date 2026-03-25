@@ -373,16 +373,18 @@ app.post('/api/update', async (req, res) => {
     const install = await execAsync('npm install', { cwd: dir });
     const build   = await execAsync('npm run build', { cwd: dir });
     res.json({ ok: true, pull: pull.stdout.trim(), install: install.stdout.trim(), build: build.stdout.trim() });
-    // launchd経由なら launchctl で再起動、なければ process.exit で再起動
-    setTimeout(async () => {
-      try {
-        const plist = `${os.homedir()}/Library/LaunchAgents/com.terminalui.server.plist`;
-        if (require('fs').existsSync(plist)) {
-          await execAsync(`launchctl unload ${plist} && launchctl load ${plist}`);
-        } else {
-          process.exit(0);
-        }
-      } catch { process.exit(0); }
+    // nohup で独立プロセスとして再起動コマンドを投げてから exit
+    setTimeout(() => {
+      const { exec } = require('child_process');
+      const plist = `${os.homedir()}/Library/LaunchAgents/com.terminalui.server.plist`;
+      if (fs.existsSync(plist)) {
+        // launchd管理下: unload→load を独立プロセスで実行（node死後も生き残る）
+        exec(`nohup sh -c 'sleep 2 && launchctl unload "${plist}" && launchctl load "${plist}"' > /dev/null 2>&1 &`);
+      } else {
+        // launchd管理外: node を直接再起動
+        exec(`nohup sh -c 'sleep 2 && node "${__filename}" > /tmp/terminal-ui.log 2>&1' > /dev/null 2>&1 &`);
+      }
+      process.exit(0);
     }, 500);
   } catch (e) {
     res.status(500).json({ error: e.message });
