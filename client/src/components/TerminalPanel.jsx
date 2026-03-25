@@ -2,6 +2,8 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useSta
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { CanvasAddon } from '@xterm/addon-canvas';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalPanel.css';
 
@@ -154,7 +156,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     const term = new Terminal({
       theme: makeTheme(accentColor),
       fontSize: mobile ? 13 : 12,
-      fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", monospace',
+      fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", "Hiragino Kaku Gothic ProN", "Noto Sans JP", monospace',
       lineHeight: 1.2,
       cursorBlink: !mobile,
       disableStdin: mobile,
@@ -164,7 +166,11 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
+    const unicode11 = new Unicode11Addon();
+    term.loadAddon(unicode11);
+    term.unicode.activeVersion = '11';
     term.open(containerRef.current);
+    term.loadAddon(new CanvasAddon());
     fitAddon.fit();
     termRef.current = term;
     fitRef.current = fitAddon;
