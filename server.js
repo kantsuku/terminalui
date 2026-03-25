@@ -395,6 +395,7 @@ app.post('/api/update', async (req, res) => {
   const execAsync = promisify(exec);
   const dir = __dirname;
   try {
+    await execAsync('git rm -r --cached user-settings/ uploads/ 2>/dev/null || true', { cwd: dir });
     const pull    = await execAsync('git pull', { cwd: dir });
     const install = await execAsync('npm install', { cwd: dir });
     const build   = await execAsync('npm run build', { cwd: dir });
