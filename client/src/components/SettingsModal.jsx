@@ -66,6 +66,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   const [updateMsg, setUpdateMsg] = useState('');
   const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeyStatus, setApiKeyStatus] = useState(null); // null | 'loading' | 'saved' | {masked}
+  const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
 
   // キャラクター一覧の編集用ローカルコピー
   const [characters, setCharacters] = useState(() =>
@@ -353,7 +356,48 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {/* ── システムタブ ── */}
           {tab === 'system' && (
             <div className="sm-section">
-              <label className="sm-label">プッシュ通知（ntfy.sh）</label>
+              <label className="sm-label">Anthropic APIキー</label>
+              <p className="sm-hint">セリフ自動生成に使うっちゃ。保存するとサーバーの.envに書き込まれるっちゃ。</p>
+              {!apiKeyLoaded && (
+                <button className="primary" style={{ width: '100%', padding: '8px', fontSize: 13, marginBottom: 8 }}
+                  onClick={async () => {
+                    const res = await fetch('/api/api-key');
+                    const data = await res.json();
+                    setApiKeyStatus(data.hasKey ? { masked: data.masked } : null);
+                    setApiKeyLoaded(true);
+                  }}>APIキー状態を確認</button>
+              )}
+              {apiKeyLoaded && (
+                <>
+                  {apiKeyStatus?.masked && (
+                    <p className="sm-hint" style={{ color: 'var(--accent)' }}>設定済み: {apiKeyStatus.masked}</p>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className="sm-input" style={{ flex: 1 }} type="password" value={apiKeyInput}
+                      onChange={e => setApiKeyInput(e.target.value)}
+                      placeholder="sk-ant-..." />
+                    <button className="primary" style={{ padding: '8px 16px', fontSize: 13, whiteSpace: 'nowrap' }}
+                      disabled={!apiKeyInput || apiKeyStatus === 'saving'}
+                      onClick={async () => {
+                        setApiKeyStatus('saving');
+                        try {
+                          const res = await fetch('/api/api-key', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ apiKey: apiKeyInput }),
+                          });
+                          const data = await res.json();
+                          if (data.ok) {
+                            setApiKeyStatus({ masked: apiKeyInput.slice(0, 10) + '...' + apiKeyInput.slice(-4) });
+                            setApiKeyInput('');
+                          } else { alert(data.error); setApiKeyStatus(null); }
+                        } catch { alert('通信エラー'); setApiKeyStatus(null); }
+                      }}>保存</button>
+                  </div>
+                </>
+              )}
+
+              <label className="sm-label" style={{ marginTop: 20 }}>プッシュ通知（ntfy.sh）</label>
               <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届くっちゃ。</p>
               <input className="sm-input" value={ntfyTopic} onChange={e => setNtfyTopic(e.target.value)}
                 placeholder="例: termui-yourname-abc123" />

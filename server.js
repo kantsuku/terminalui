@@ -377,10 +377,33 @@ app.delete('/api/sessions/:name', async (req, res) => {
 });
 
 // セリフ自動生成（Claude API）
+// APIキー取得・保存
+const envPath = path.join(__dirname, '.env');
+app.get('/api/api-key', (req, res) => {
+  const key = process.env.ANTHROPIC_API_KEY || '';
+  res.json({ hasKey: !!key, masked: key ? key.slice(0, 10) + '...' + key.slice(-4) : '' });
+});
+app.post('/api/api-key', (req, res) => {
+  const { apiKey } = req.body || {};
+  if (!apiKey) return res.status(400).json({ error: 'APIキーが空っちゃ' });
+  try {
+    let envContent = '';
+    if (fs.existsSync(envPath)) envContent = fs.readFileSync(envPath, 'utf8');
+    if (envContent.match(/^ANTHROPIC_API_KEY=.*/m)) {
+      envContent = envContent.replace(/^ANTHROPIC_API_KEY=.*/m, `ANTHROPIC_API_KEY=${apiKey}`);
+    } else {
+      envContent += `${envContent && !envContent.endsWith('\n') ? '\n' : ''}ANTHROPIC_API_KEY=${apiKey}\n`;
+    }
+    fs.writeFileSync(envPath, envContent);
+    process.env.ANTHROPIC_API_KEY = apiKey;
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/generate-lines', async (req, res) => {
   const { charName, claudePrompt } = req.body || {};
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY が設定されていないっちゃ' });
+  if (!apiKey) return res.status(500).json({ error: 'APIキーが未設定。システムタブで設定してっちゃ' });
   try {
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic.default({ apiKey });
@@ -397,7 +420,7 @@ app.post('/api/generate-lines', async (req, res) => {
 ${charDesc}
 
 各状態について、そのキャラクターらしい短いセリフを5個ずつ生成してください。
-セリフは10〜30文字程度の短いものにしてください。
+セリフは20文字以内の短いものにしてください。絶対に20文字を超えないこと。
 
 以下のJSON形式で返してください（他のテキストは不要）:
 {
