@@ -343,18 +343,18 @@ app.get('/api/sessions', async (req, res) => {
   res.json(filtered);
 });
 
-// displayNames ヘルパー: ユーザー設定の displayNames を読み書き
+// displayNames ヘルパー: ユーザーごとの表示名マッピング（設定JSONとは別ファイル）
+function displayNamesPath(userName) {
+  const safe = userName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return path.join(SETTINGS_DIR, `${safe}.displayNames.json`);
+}
 function loadDisplayNames(userName) {
-  const p = settingsPath(userName);
+  const p = displayNamesPath(userName);
   if (!fs.existsSync(p)) return {};
-  try { return JSON.parse(fs.readFileSync(p, 'utf8')).displayNames || {}; } catch { return {}; }
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return {}; }
 }
 function saveDisplayNames(userName, displayNames) {
-  const p = settingsPath(userName);
-  let data = {};
-  if (fs.existsSync(p)) try { data = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}
-  data.displayNames = displayNames;
-  fs.writeFileSync(p, JSON.stringify(data, null, 2));
+  fs.writeFileSync(displayNamesPath(userName), JSON.stringify(displayNames, null, 2));
 }
 
 // 自動セッション名生成
