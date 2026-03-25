@@ -9,12 +9,15 @@ import './PCLayout.css';
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
 
 const SKILLS = [
-  { label: '/commit',    cmd: 'コミットして\r',          desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
-  { label: 'git push',  cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
-  { label: 'git status',cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
-  { label: 'git diff',  cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
-  { label: 'clasp push', cmd: 'clasp push\r',          desc: 'GASのコードをGoogle Driveにプッシュする' },
-  { label: '中断',      cmd: '\x1b',                  desc: 'Escキーを送信して処理を中断する' },
+  { label: '/commit',       cmd: 'コミットして\r',          desc: 'AIが変更内容を見てコミットメッセージを作って保存する' },
+  { label: 'git push',      cmd: 'git push\r',            desc: '今のコミットをGitHubに送る' },
+  { label: 'git status',    cmd: 'git status\r',          desc: '何のファイルが変更されているか確認する' },
+  { label: 'git diff',      cmd: 'git --no-pager diff\r', desc: 'ファイルの中身がどう変わったか確認する' },
+  { label: 'clasp push',    cmd: 'clasp push\r',          desc: 'GASのコードをGoogle Driveにプッシュする' },
+  { label: '中断',          cmd: '\x1b',                  desc: 'Escキーを送信して処理を中断する' },
+  { label: '/design-view',  cmd: '/design-view\r',        desc: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェック' },
+  { label: '/propose',      cmd: '/propose\r',            desc: 'UX・機能・パフォーマンスなど改善案をAIが提案する' },
+  { label: '/health-check', cmd: '/health-check\r',       desc: 'クラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出す' },
 ];
 
 
@@ -360,6 +363,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                     <TerminalPanel
                       ref={el => { panelRefs.current[name] = el; }}
                       sessionName={name}
+                      userName={userName}
                       mobile={false}
                       ntfyTopic={settings.ntfyTopic || ''}
                       accentColor={getCharForSession(settings, name).accent || '#00d4aa'}
@@ -400,7 +404,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                     <button className="icon" onClick={() => panelRefs.current[name]?.sendKey('\x03')}>中断</button>
                     <button className="icon" onClick={() => panelRefs.current[name]?.copySelection()}>コピー</button>
                     <button className="icon" onClick={async () => {
-                      const res = await fetch(`/api/sessions/${encodeURIComponent(name)}/history`);
+                      const res = await fetch(`/api/sessions/${encodeURIComponent(name)}/history?user=${encodeURIComponent(userName)}`);
                       const data = await res.json();
                       setPanelHistory(p => ({ ...p, [name]: data.content || '' }));
                     }}>履歴</button>

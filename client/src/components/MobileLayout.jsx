@@ -113,7 +113,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
   const openHistory = useCallback(async () => {
     if (!activeSession) return;
-    const res = await fetch(`/api/sessions/${encodeURIComponent(activeSession.name)}/history`);
+    const res = await fetch(`/api/sessions/${encodeURIComponent(activeSession.name)}/history?user=${encodeURIComponent(userName)}`);
     const data = await res.json();
     setHistory(data.content || '');
     setTimeout(() => {
@@ -455,6 +455,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             key={activeSession.name}
             ref={panelRef}
             sessionName={activeSession.name}
+            userName={userName}
             mobile={true}
             ntfyTopic={settings.ntfyTopic || ''}
             accentColor={accent}

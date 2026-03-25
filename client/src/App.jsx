@@ -104,7 +104,7 @@ function AppMain({ userName }) {
   );
   const [viewportMobile, setViewportMobile] = useState(() => window.innerWidth < 1024);
   const [showSettings, setShowSettings] = useState(false);
-  const sessionHook = useSessions();
+  const sessionHook = useSessions(userName);
   const { settings: baseSettings, save, reset } = useSettings(userName);
 
   const [settings, setSettings] = useState(() => baseSettings);

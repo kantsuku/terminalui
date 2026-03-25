@@ -252,20 +252,37 @@ app.get('/api/info', (req, res) => {
   res.json({ urls });
 });
 
+// ユーザー別セッション分離: tmuxセッション名に "{user}--" プレフィックスを付ける
+const SEP = '--';
+function prefixed(user, name) { return `${user}${SEP}${name}`; }
+function stripPrefix(user, tmuxName) {
+  const p = `${user}${SEP}`;
+  return tmuxName.startsWith(p) ? tmuxName.slice(p.length) : tmuxName;
+}
+
 app.get('/api/sessions', async (req, res) => {
-  res.json(await listSessions());
+  const user = req.query.user || 'default';
+  const prefix = `${user}${SEP}`;
+  const all = await listSessions();
+  // プレフィックスが一致するセッションだけ返し、表示名はプレフィックスを除去
+  const filtered = all
+    .filter(s => s.name.startsWith(prefix))
+    .map(s => ({ ...s, name: s.name.slice(prefix.length) }));
+  res.json(filtered);
 });
 
 // Create a regular session or a Claude Code session
-// body: { name?: string, type?: 'shell' | 'claude' }
+// body: { name?: string, type?: 'shell' | 'claude', user?: string }
 app.post('/api/sessions', async (req, res) => {
-  const { name, type, systemPrompt } = req.body;
-  console.log(`[POST /api/sessions] name=${name} type=${type} from=${req.ip}`);
+  const { name, type, systemPrompt, user = 'default' } = req.body;
+  const tmuxName = prefixed(user, name || (type === 'claude' ? 'claude' : 'shell'));
+  console.log(`[POST /api/sessions] name=${tmuxName} type=${type} from=${req.ip}`);
   try {
     const command = type === 'claude' ? 'claude' : undefined;
-    const sessionName = await createSession(name, command, systemPrompt);
+    const sessionName = await createSession(tmuxName, command, systemPrompt);
+    const displayName = stripPrefix(user, sessionName);
     console.log(`[POST /api/sessions] created: ${sessionName}`);
-    res.json({ ok: true, name: sessionName });
+    res.json({ ok: true, name: displayName });
   } catch (err) {
     console.error(`[POST /api/sessions] error: ${err.message}`);
     res.status(500).json({ error: err.message });
@@ -275,9 +292,10 @@ app.post('/api/sessions', async (req, res) => {
 // Rename a session
 app.patch('/api/sessions/:name', async (req, res) => {
   const { newName } = req.body;
+  const user = req.query.user || 'default';
   if (!newName) return res.status(400).json({ error: 'newName is required' });
   try {
-    await renameSession(req.params.name, newName);
+    await renameSession(prefixed(user, req.params.name), prefixed(user, newName));
     res.json({ ok: true, name: newName });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -285,8 +303,9 @@ app.patch('/api/sessions/:name', async (req, res) => {
 });
 
 app.delete('/api/sessions/:name', async (req, res) => {
+  const user = req.query.user || 'default';
   try {
-    await killSession(req.params.name);
+    await killSession(prefixed(user, req.params.name));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -373,12 +392,14 @@ app.post('/api/update', async (req, res) => {
 // tmux capture-pane で履歴取得
 app.get('/api/sessions/:name/history', async (req, res) => {
   const { name } = req.params;
+  const user = req.query.user || 'default';
+  const tmuxName = prefixed(user, name);
   const { exec } = require('child_process');
   const { promisify } = require('util');
   const execAsync = promisify(exec);
   const TMUX = process.env.TMUX_BIN || '/opt/homebrew/bin/tmux';
   try {
-    const { stdout } = await execAsync(`${TMUX} capture-pane -p -S -2000 -t "${name}" 2>/dev/null`);
+    const { stdout } = await execAsync(`${TMUX} capture-pane -p -S -2000 -t "${tmuxName}" 2>/dev/null`);
     // ANSI エスケープコードを除去
     const clean = stdout.replace(/\x1b\[[0-9;]*[mGKHFABCDsuJr]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
     res.json({ content: clean });
@@ -416,12 +437,13 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'attach': {
         if (session) session.kill();
-        sessionExists(msg.session).then((exists) => {
+        const tmuxSession = prefixed(msg.user || 'default', msg.session);
+        sessionExists(tmuxSession).then((exists) => {
           if (!exists) {
             ws.send(JSON.stringify({ type: 'error', message: `Session "${msg.session}" not found` }));
             return;
           }
-          session = attachSession(msg.session, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
+          session = attachSession(tmuxSession, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
           if (autoYesEnabled) session.setAutoYes(true);
         });
         break;

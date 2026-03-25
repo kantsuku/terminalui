@@ -1,20 +1,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-export function useSessions() {
+export function useSessions(userName = 'default') {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch('/api/sessions');
+      const res = await fetch(`/api/sessions?user=${encodeURIComponent(userName)}`);
       const data = await res.json();
       setSessions(data);
       return data;
     } catch {
       return [];
     }
-  }, []);
+  }, [userName]);
 
   const startPolling = useCallback(() => {
     if (timerRef.current) return;
@@ -38,7 +38,7 @@ export function useSessions() {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, systemPrompt }),
+        body: JSON.stringify({ name, type, systemPrompt, user: userName }),
       });
       const data = await res.json();
       await fetchSessions();
@@ -46,15 +46,15 @@ export function useSessions() {
     } finally {
       setLoading(false);
     }
-  }, [fetchSessions]);
+  }, [fetchSessions, userName]);
 
   const killSession = useCallback(async (name) => {
-    await fetch(`/api/sessions/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    await fetch(`/api/sessions/${encodeURIComponent(name)}?user=${encodeURIComponent(userName)}`, { method: 'DELETE' });
     await fetchSessions();
-  }, [fetchSessions]);
+  }, [fetchSessions, userName]);
 
   const renameSession = useCallback(async (oldName, newName) => {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(oldName)}`, {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(oldName)}?user=${encodeURIComponent(userName)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newName }),
@@ -62,7 +62,7 @@ export function useSessions() {
     const data = await res.json();
     await fetchSessions();
     return data;
-  }, [fetchSessions]);
+  }, [fetchSessions, userName]);
 
   return { sessions, loading, fetchSessions, createSession, killSession, renameSession };
 }

@@ -49,7 +49,7 @@ function makeTheme(accent) {
 }
 
 const TerminalPanel = forwardRef(function TerminalPanel(
-  { sessionName, mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput },
+  { sessionName, userName = 'default', mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput },
   ref
 ) {
   const containerRef = useRef(null);
@@ -199,7 +199,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
       ws.onopen = () => {
         updateState('connected');
-        ws.send(JSON.stringify({ type: 'attach', session: sessionName, cols: term.cols, rows: term.rows, ntfyTopic }));
+        ws.send(JSON.stringify({ type: 'attach', session: sessionName, user: userName, cols: term.cols, rows: term.rows, ntfyTopic }));
       };
 
       ws.onerror = () => updateState('error');
@@ -285,7 +285,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       termRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionName, mobile, active, accentColor]);
+  }, [sessionName, userName, mobile, active, accentColor]);
 
   const stateColor = {
     connecting:   '#d29922',
