@@ -4,3 +4,6 @@ client/dist/
 dist/
 *.log
 .env
+
+user-settings/
+uploads/
