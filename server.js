@@ -12,6 +12,25 @@ const { execSync } = require('child_process');
 const { listSessions, createSession, killSession, sessionExists, renameSession } = require('./lib/tmux');
 const { attachSession } = require('./lib/ptyManager');
 
+// ── サーバー間同期 ─────────────────────────────────────────────────────────────
+const SYNC_SERVERS = (process.env.SYNC_SERVERS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+async function syncToServers(apiPath, body) {
+  for (const server of SYNC_SERVERS) {
+    try {
+      await fetch(`${server}${apiPath}?_sync=1`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(5000),
+      });
+      console.log(`[Sync] → ${server}${apiPath} OK`);
+    } catch (e) {
+      console.warn(`[Sync] → ${server}${apiPath} failed:`, e.message);
+    }
+  }
+}
+
 // ── 認証 ───────────────────────────────────────────────────────────────────────
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || '';
 const AUTH_SECRET     = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex');
@@ -145,15 +164,22 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 app.get('/api/user-settings/:userName', (req, res) => {
   try {
     const p = settingsPath(req.params.userName);
-    if (!fs.existsSync(p)) return res.json(null);
-    res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
+    if (fs.existsSync(p)) return res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
+    // ユーザー設定がなければ _default.json にフォールバック
+    const defaultP = settingsPath('_default');
+    if (fs.existsSync(defaultP)) return res.json(JSON.parse(fs.readFileSync(defaultP, 'utf8')));
+    res.json(null);
   } catch { res.json(null); }
 });
 
-app.post('/api/user-settings/:userName', (req, res) => {
+app.post('/api/user-settings/:userName', async (req, res) => {
   try {
     fs.writeFileSync(settingsPath(req.params.userName), JSON.stringify(req.body));
     res.json({ ok: true });
+    // _sync=1 のリクエストはループ防止のため同期しない
+    if (!req.query._sync) {
+      syncToServers(`/api/user-settings/${encodeURIComponent(req.params.userName)}`, req.body);
+    }
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
