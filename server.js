@@ -395,10 +395,13 @@ app.post('/api/update', async (req, res) => {
   const execAsync = promisify(exec);
   const dir = __dirname;
   try {
-    await execAsync('git rm -r --cached user-settings/ uploads/ 2>/dev/null || true', { cwd: dir });
-    const pull    = await execAsync('git pull', { cwd: dir });
-    const install = await execAsync('npm install', { cwd: dir });
-    const build   = await execAsync('npm run build', { cwd: dir });
+    // npmのフルパスを解決（launchd環境ではPATHが限られるため）
+    const npmBin = process.execPath.replace(/\/node$/, '/npm');
+    const env = { ...process.env, PATH: `/usr/local/bin:/opt/homebrew/bin:${process.env.PATH || ''}` };
+    await execAsync('git rm -r --cached user-settings/ uploads/ 2>/dev/null || true', { cwd: dir, env });
+    const pull    = await execAsync('git pull', { cwd: dir, env });
+    const install = await execAsync(`"${npmBin}" install`, { cwd: dir, env });
+    const build   = await execAsync(`"${npmBin}" run build`, { cwd: dir, env });
     res.json({ ok: true, pull: pull.stdout.trim(), install: install.stdout.trim(), build: build.stdout.trim() });
     // nohup で独立プロセスとして再起動コマンドを投げてから exit
     setTimeout(() => {
