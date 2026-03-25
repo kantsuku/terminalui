@@ -177,6 +177,12 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     t.thinking = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 15000);
   }, []);
 
+  // セッション _id → 表示名の解決ヘルパー
+  const getDisplayName = useCallback((id) => {
+    const s = sessions.find(s => (s._id || s.name) === id);
+    return s?.name || id;
+  }, [sessions]);
+
   const handleCreate = useCallback(async ({ name, type, characterId }) => {
     setShowNewModal(false);
     const char = settings.characters?.find(c => c.id === characterId) || settings.characters?.[0];
@@ -187,24 +193,28 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         const newSessionChars = { ...(settings.sessionChars || {}), [res.name]: characterId };
         onSaveSettings?.({ sessionChars: newSessionChars });
       }
-      await fetchSessions();
-      setActiveSessions(prev => prev.length < 3 ? [...prev, res.name] : prev);
+      const updated = await fetchSessions();
+      // 新しく作られたセッションの _id を activeSessions に追加
+      const created = updated.find(s => s.name === res.name);
+      const newId = created?._id || res.name;
+      setActiveSessions(prev => prev.length < 3 ? [...prev, newId] : prev);
     }
   }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
-  const handleKill = useCallback(async (name) => {
-    await killSession(name);
+  const handleKill = useCallback(async (id) => {
+    await killSession(id);
+    setActiveSessions(prev => prev.filter(n => n !== id));
   }, [killSession]);
 
   const handleRename = useCallback(async (newName) => {
-    const old = renaming.name;
+    const id = renaming._id || renaming.name;
+    const oldDisplayName = renaming.name;
     setRenaming(null);
-    await renameSession(old, newName);
-    setActiveSessions(prev => prev.map(n => n === old ? newName : n));
+    await renameSession(id, newName);
     // sessionChars のキーも更新
-    if (settings.sessionChars?.[old]) {
-      const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[old] };
-      delete updated[old];
+    if (settings.sessionChars?.[oldDisplayName]) {
+      const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[oldDisplayName] };
+      delete updated[oldDisplayName];
       onSaveSettings?.({ sessionChars: updated });
     }
   }, [renaming, renameSession, settings.sessionChars, onSaveSettings]);
@@ -257,12 +267,13 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
           {sessions.map(s => {
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;
             const working = secAgo < 10;
-            const selected = activeSessions.includes(s.name);
+            const sid = s._id || s.name;
+            const selected = activeSessions.includes(sid);
             return (
               <div
-                key={s.name}
+                key={sid}
                 className={`session-item ${selected ? 'selected' : ''}`}
-                onClick={() => toggleSession(s.name)}
+                onClick={() => toggleSession(sid)}
               >
                 <span className={`dot ${statusClass(s)} ${s.isClaude ? 'claude' : ''}`} />
                 <div className="session-info">
@@ -272,8 +283,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                   </div>
                 </div>
                 <div className="session-actions" onClick={e => e.stopPropagation()}>
-                  <button className="icon" title="リネーム" onClick={() => setRenaming({ name: s.name })}>✎</button>
-                  <button className="icon danger" title="終了" onClick={() => handleKill(s.name)}>✕</button>
+                  <button className="icon" title="リネーム" onClick={() => setRenaming({ name: s.name, _id: sid })}>✎</button>
+                  <button className="icon danger" title="終了" onClick={() => handleKill(sid)}>✕</button>
                 </div>
               </div>
             );
@@ -306,19 +317,20 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
               gridTemplateRows: `repeat(${rows}, 1fr)`,
             }}
           >
-            {activeSessions.map(name => {
-              const sessionType = sessions.find(s => s.name === name)?.type;
-              const isShell = sessionType === 'shell' || !sessions.find(s => s.name === name)?.isClaude;
+            {activeSessions.map(id => {
+              const sObj = sessions.find(s => (s._id || s.name) === id);
+              const name = sObj?.name || id;
+              const isShell = sObj?.type === 'shell' || !sObj?.isClaude;
               const defaultAy = !isShell;
-              const ay = autoYes[name] ?? defaultAy;
+              const ay = autoYes[id] ?? defaultAy;
               return (
                 <div
-                  key={name}
+                  key={id}
                   className="panel"
                   draggable
-                  onDragStart={() => handleDragStart(name)}
+                  onDragStart={() => handleDragStart(id)}
                   onDragOver={e => e.preventDefault()}
-                  onDrop={() => handleDrop(name)}
+                  onDrop={() => handleDrop(id)}
                   style={(() => {
                     const accent = getCharForSession(settings, name).accent || '#00d4aa';
                     return {
@@ -331,7 +343,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                   <div className="panel-header" style={{ cursor: 'grab' }}>
                     {(() => {
                       const panelChar = getCharForSession(settings, name);
-                      const state = panelDisplayStates[name] || 'idle';
+                      const state = panelDisplayStates[id] || 'idle';
                       const cycleNormal = panelChar.charImgNormal && charTick % 2 === 1;
                       const fallback = panelChar.charImgNormal || panelChar.charImgIdle || null;
                       const src = {
@@ -357,36 +369,34 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                           <div className="panel-char-status" style={{ color: statusColor }}>{statusLabel}</div>
                           <div className="panel-char-name">{panelChar.name || '—'}</div>
                         </div>
-                        <button className="icon danger" style={{ alignSelf: 'flex-start', margin: '6px 6px 0 0', cursor: 'pointer' }} title="パネルを閉じる" onClick={e => { e.stopPropagation(); setActiveSessions(p => p.filter(n => n !== name)); }}>✕</button>
+                        <button className="icon danger" style={{ alignSelf: 'flex-start', margin: '6px 6px 0 0', cursor: 'pointer' }} title="パネルを閉じる" onClick={e => { e.stopPropagation(); setActiveSessions(p => p.filter(n => n !== id)); }}>✕</button>
                       </>);
                     })()}
                   </div>
                   <div className="panel-body">
                     <TerminalPanel
-                      ref={el => { panelRefs.current[name] = el; }}
-                      sessionName={name}
+                      ref={el => { panelRefs.current[id] = el; }}
+                      sessionName={id}
                       userName={userName}
                       mobile={false}
                       ntfyTopic={settings.ntfyTopic || ''}
                       accentColor={getCharForSession(settings, name).accent || '#00d4aa'}
-                      onActivity={() => handleActivity(name)}
-                      onOutput={(data) => handleOutput(name, data)}
-                      onInput={() => handleInput(name)}
+                      onActivity={() => handleActivity(id)}
+                      onOutput={(data) => handleOutput(id, data)}
+                      onInput={() => handleInput(id)}
                       onConnStateChange={state => {
                         if (state === 'connected') {
-                          const s = sessions.find(s => s.name === name);
-                          const shell = s?.type === 'shell' || !s?.isClaude;
-                          const enabled = shell ? false : (autoYes[name] ?? true);
-                          panelRefs.current[name]?.setAutoYes(enabled);
-                          panelRefs.current[name]?.setClientAutoEnter(enabled);
+                          const enabled = isShell ? false : (autoYes[id] ?? true);
+                          panelRefs.current[id]?.setAutoYes(enabled);
+                          panelRefs.current[id]?.setClientAutoEnter(enabled);
                         }
                       }}
                     />
                   </div>
                   {/* コントロール行 */}
                   <div className="panel-controls" style={{ position: 'relative' }}>
-                    <button className="icon" title="スキル" onClick={() => setSkillsPopupFor(v => v === name ? null : name)}>⚡</button>
-                    {skillsPopupFor === name && (
+                    <button className="icon" title="スキル" onClick={() => setSkillsPopupFor(v => v === id ? null : id)}>⚡</button>
+                    {skillsPopupFor === id && (
                       <div className="panel-skills-popup">
                         {SKILLS.map(sk => (
                           <button
@@ -395,7 +405,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                             onClick={() => {
                               setSkillsPopupFor(null);
                               if (sk.confirm && !window.confirm(sk.confirm)) return;
-                              panelRefs.current[name]?.sendInput(sk.cmd);
+                              panelRefs.current[id]?.sendInput(sk.cmd);
                             }}
                           >
                             <span className="panel-skill-label">{sk.label}</span>
@@ -404,12 +414,12 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                         ))}
                       </div>
                     )}
-                    <button className="icon" onClick={() => panelRefs.current[name]?.sendKey('\x03')}>中断</button>
-                    <button className="icon" onClick={() => panelRefs.current[name]?.copySelection()}>コピー</button>
+                    <button className="icon" onClick={() => panelRefs.current[id]?.sendKey('\x03')}>中断</button>
+                    <button className="icon" onClick={() => panelRefs.current[id]?.copySelection()}>コピー</button>
                     <button className="icon" onClick={async () => {
-                      const res = await fetch(`/api/sessions/${encodeURIComponent(name)}/history?user=${encodeURIComponent(userName)}`);
+                      const res = await fetch(`/api/sessions/${encodeURIComponent(id)}/history?user=${encodeURIComponent(userName)}`);
                       const data = await res.json();
-                      setPanelHistory(p => ({ ...p, [name]: data.content || '' }));
+                      setPanelHistory(p => ({ ...p, [id]: data.content || '' }));
                     }}>履歴</button>
                     <div style={{ flex: 1 }} />
                     {!isShell && (
@@ -418,16 +428,16 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                           className={`panel-ctrl-big ${ay ? 'active' : ''}`}
                           onClick={() => {
                             const next = !ay;
-                            setAutoYes(p => ({ ...p, [name]: next }));
-                            panelRefs.current[name]?.setAutoYes(next);
-                            panelRefs.current[name]?.setClientAutoEnter(next);
+                            setAutoYes(p => ({ ...p, [id]: next }));
+                            panelRefs.current[id]?.setAutoYes(next);
+                            panelRefs.current[id]?.setClientAutoEnter(next);
                           }}
                         >
                           自動
                         </button>
                         <button
                           className={`panel-ctrl-big panel-ctrl-yes primary${ay ? ' dimmed' : ''}`}
-                          onClick={() => panelRefs.current[name]?.sendKey('\r')}
+                          onClick={() => panelRefs.current[id]?.sendKey('\r')}
                         >
                           ⏎ Yes
                         </button>
@@ -439,15 +449,15 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                     <textarea
                       className="panel-input"
                       placeholder="コマンド入力... (Shift+Enter で改行、Enter で送信)"
-                      value={panelInput[name] || ''}
-                      onChange={e => setPanelInput(p => ({ ...p, [name]: e.target.value }))}
+                      value={panelInput[id] || ''}
+                      onChange={e => setPanelInput(p => ({ ...p, [id]: e.target.value }))}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                           e.preventDefault();
-                          const val = panelInput[name];
+                          const val = panelInput[id];
                           if (!val) return;
-                          panelRefs.current[name]?.sendInput(val + '\r');
-                          setPanelInput(p => ({ ...p, [name]: '' }));
+                          panelRefs.current[id]?.sendInput(val + '\r');
+                          setPanelInput(p => ({ ...p, [id]: '' }));
                         }
                       }}
                       autoComplete="off" autoCorrect="off" spellCheck={false}
@@ -463,7 +473,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                           try {
                             const res = await fetch('/api/upload', { method: 'POST', body: form });
                             const data = await res.json();
-                            if (data.path) setPanelInput(p => ({ ...p, [name]: (p[name] || '') + data.path }));
+                            if (data.path) setPanelInput(p => ({ ...p, [id]: (p[id] || '') + data.path }));
                           } catch { alert('アップロード失敗'); }
                           e.target.value = '';
                         }} />
@@ -472,10 +482,10 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                         className="primary panel-send"
                         onPointerDown={e => {
                           e.preventDefault();
-                          const val = panelInput[name];
+                          const val = panelInput[id];
                           if (!val) return;
-                          panelRefs.current[name]?.sendInput(val + '\r');
-                          setPanelInput(p => ({ ...p, [name]: '' }));
+                          panelRefs.current[id]?.sendInput(val + '\r');
+                          setPanelInput(p => ({ ...p, [id]: '' }));
                         }}
                       >
                         ▶

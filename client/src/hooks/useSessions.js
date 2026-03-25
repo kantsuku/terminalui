@@ -48,13 +48,13 @@ export function useSessions(userName = 'default') {
     }
   }, [fetchSessions, userName]);
 
-  const killSession = useCallback(async (name) => {
-    await fetch(`/api/sessions/${encodeURIComponent(name)}?user=${encodeURIComponent(userName)}`, { method: 'DELETE' });
+  const killSession = useCallback(async (id) => {
+    await fetch(`/api/sessions/${encodeURIComponent(id)}?user=${encodeURIComponent(userName)}`, { method: 'DELETE' });
     await fetchSessions();
   }, [fetchSessions, userName]);
 
-  const renameSession = useCallback(async (oldName, newName) => {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(oldName)}?user=${encodeURIComponent(userName)}`, {
+  const renameSession = useCallback(async (id, newName) => {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(id)}?user=${encodeURIComponent(userName)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newName }),

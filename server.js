@@ -283,7 +283,11 @@ app.get('/api/icon', async (req, res) => {
     const p = settingsPath(userName);
     if (!fs.existsSync(p)) return res.redirect('/character.png');
     const settings = JSON.parse(fs.readFileSync(p, 'utf8'));
-    const dataUrl = settings.charImgNormal || settings.charImgIdle || settings.charImgWorking;
+    // characters配列からデフォルトキャラの画像を取得
+    const charId = settings.defaultCharId || 'default';
+    const char = (settings.characters || []).find(c => c.id === charId) || (settings.characters || [])[0];
+    const dataUrl = char?.charImgNormal || char?.charImgIdle || char?.charImgWorking
+      || settings.charImgNormal || settings.charImgIdle || settings.charImgWorking;
     if (!dataUrl || !dataUrl.startsWith('data:')) return res.redirect('/character.png');
     const [, b64] = dataUrl.split(',');
     const buf = Buffer.from(b64, 'base64');
@@ -327,25 +331,61 @@ function stripPrefix(user, tmuxName) {
 app.get('/api/sessions', async (req, res) => {
   const user = req.query.user || 'default';
   const prefix = `${user}${SEP}`;
+  const displayNames = loadDisplayNames(user);
   const all = await listSessions();
-  // プレフィックスが一致するセッションだけ返し、表示名はプレフィックスを除去
+  // プレフィックスが一致するセッションだけ返し、displayNamesで表示名を解決
   const filtered = all
     .filter(s => s.name.startsWith(prefix))
-    .map(s => ({ ...s, name: s.name.slice(prefix.length) }));
+    .map(s => {
+      const internal = s.name.slice(prefix.length);
+      return { ...s, name: displayNames[internal] || internal, _id: internal };
+    });
   res.json(filtered);
 });
+
+// displayNames ヘルパー: ユーザー設定の displayNames を読み書き
+function loadDisplayNames(userName) {
+  const p = settingsPath(userName);
+  if (!fs.existsSync(p)) return {};
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')).displayNames || {}; } catch { return {}; }
+}
+function saveDisplayNames(userName, displayNames) {
+  const p = settingsPath(userName);
+  let data = {};
+  if (fs.existsSync(p)) try { data = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}
+  data.displayNames = displayNames;
+  fs.writeFileSync(p, JSON.stringify(data, null, 2));
+}
+
+// 自動セッション名生成
+function autoName(type, existingDisplayNames) {
+  const prefix = type === 'claude' ? 'Claude' : 'Shell';
+  const used = new Set(Object.values(existingDisplayNames));
+  for (let i = 1; ; i++) {
+    const candidate = `${prefix} ${i}`;
+    if (!used.has(candidate)) return candidate;
+  }
+}
 
 // Create a regular session or a Claude Code session
 // body: { name?: string, type?: 'shell' | 'claude', user?: string }
 app.post('/api/sessions', async (req, res) => {
   const { name, type, systemPrompt, user = 'default' } = req.body;
-  const tmuxName = prefixed(user, name || (type === 'claude' ? 'claude' : 'shell'));
-  console.log(`[POST /api/sessions] name=${tmuxName} type=${type} from=${req.ip}`);
+  const displayNames = loadDisplayNames(user);
+  // 表示名を決定（入力なし→自動生成、Shell→'Shell'固定）
+  const displayName = type === 'shell' ? 'Shell' : (name?.trim() || autoName(type, displayNames));
+  // tmux名はASCIIのみ（タイムスタンプベース）
+  const tmuxId = `s${Date.now()}`;
+  const tmuxName = prefixed(user, tmuxId);
+  console.log(`[POST /api/sessions] tmux=${tmuxName} display="${displayName}" type=${type} from=${req.ip}`);
   try {
     const command = type === 'claude' ? 'claude' : undefined;
     const sessionName = await createSession(tmuxName, command, systemPrompt);
-    const displayName = stripPrefix(user, sessionName);
-    console.log(`[POST /api/sessions] created: ${sessionName}`);
+    const internalName = stripPrefix(user, sessionName);
+    // displayNames マッピングを保存
+    displayNames[internalName] = displayName;
+    saveDisplayNames(user, displayNames);
+    console.log(`[POST /api/sessions] created: ${sessionName} -> "${displayName}"`);
     res.json({ ok: true, name: displayName });
   } catch (err) {
     console.error(`[POST /api/sessions] error: ${err.message}`);
@@ -353,23 +393,31 @@ app.post('/api/sessions', async (req, res) => {
   }
 });
 
-// Rename a session
-app.patch('/api/sessions/:name', async (req, res) => {
+// Rename a session (表示名のみ変更、tmuxセッション名は変えない)
+app.patch('/api/sessions/:id', async (req, res) => {
   const { newName } = req.body;
   const user = req.query.user || 'default';
   if (!newName) return res.status(400).json({ error: 'newName is required' });
   try {
-    await renameSession(prefixed(user, req.params.name), prefixed(user, newName));
+    const displayNames = loadDisplayNames(user);
+    const internalId = req.params.id;
+    displayNames[internalId] = newName;
+    saveDisplayNames(user, displayNames);
     res.json({ ok: true, name: newName });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/sessions/:name', async (req, res) => {
+app.delete('/api/sessions/:id', async (req, res) => {
   const user = req.query.user || 'default';
   try {
-    await killSession(prefixed(user, req.params.name));
+    const internalId = req.params.id;
+    await killSession(prefixed(user, internalId));
+    // displayNames からも削除
+    const displayNames = loadDisplayNames(user);
+    delete displayNames[internalId];
+    saveDisplayNames(user, displayNames);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

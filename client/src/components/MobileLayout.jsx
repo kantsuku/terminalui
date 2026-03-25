@@ -277,15 +277,16 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }
   }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
-  const handleKill = useCallback(async (name) => {
-    await killSession(name);
+  const handleKill = useCallback(async (id) => {
+    await killSession(id);
     setShowDrawer(false);
     fetchSessions();
   }, [killSession, fetchSessions]);
 
   const handleRename = useCallback(async (newName) => {
+    const id = renaming._id || renaming.name;
     const oldName = renaming.name;
-    await renameSession(oldName, newName);
+    await renameSession(id, newName);
     setRenaming(null);
     // sessionChars のキーも更新
     if (settings.sessionChars?.[oldName]) {
@@ -344,12 +345,13 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   }, []);
 
 
+  const pickLine = (lines, fallback) => lines?.length ? lines[charTick % lines.length] : fallback;
   const statusInfo = {
-    connecting:   { label: activeChar.thinkingLines?.[0]  || '接続中...', cls: 'warn' },
-    connected:    { label: activeChar.idleLines?.[0]      || '接続済み',  cls: 'ok'   },
-    reconnecting: { label: activeChar.thinkingLines?.[1]  || activeChar.thinkingLines?.[0] || '再接続中...', cls: 'warn' },
-    disconnected: { label: activeChar.offlineLines?.[0]   || '切断されました', cls: 'err'  },
-    error:        { label: activeChar.errorLines?.[0]     || 'エラー',    cls: 'err'  },
+    connecting:   { label: pickLine(activeChar.thinkingLines, '接続中...'), cls: 'warn' },
+    connected:    { label: pickLine(activeChar.idleLines, '接続済み'),  cls: 'ok'   },
+    reconnecting: { label: pickLine(activeChar.thinkingLines, '再接続中...'), cls: 'warn' },
+    disconnected: { label: pickLine(activeChar.offlineLines, '切断されました'), cls: 'err'  },
+    error:        { label: pickLine(activeChar.errorLines, 'エラー'),    cls: 'err'  },
   }[connState] || { label: connState, cls: 'warn' };
 
   return (
@@ -364,9 +366,10 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;
             const needsInput = /[\?？]|y\/n|\[y|enter|confirm|続ける|許可|信頼/i.test(s.lastLine || '');
             const sChar = getCharForSession(settings, s.name);
-            const status = needsInput ? { label: sChar.thinkingLines?.[0] || '確認待ち', cls: 'confirm' }
-              : secAgo < 10  ? { label: sChar.workingLines?.[0]  || '作業中', cls: 'working' }
-              : { label: sChar.idleLines?.[0]    || '待機中', cls: 'idle' };
+            const pickLine = (lines, fallback) => lines?.length ? lines[charTick % lines.length] : fallback;
+            const status = needsInput ? { label: pickLine(sChar.thinkingLines, '確認待ち'), cls: 'confirm' }
+              : secAgo < 10  ? { label: pickLine(sChar.workingLines, '作業中'), cls: 'working' }
+              : { label: pickLine(sChar.idleLines, '待機中'), cls: 'idle' };
             return (
               <button
                 key={s.name}
@@ -453,9 +456,9 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       <div className="ml-terminal" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} ref={terminalDivRef}>
         {activeSession ? (
           <TerminalPanel
-            key={activeSession.name}
+            key={activeSession._id || activeSession.name}
             ref={panelRef}
-            sessionName={activeSession.name}
+            sessionName={activeSession._id || activeSession.name}
             userName={userName}
             mobile={true}
             ntfyTopic={settings.ntfyTopic || ''}
@@ -606,8 +609,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                         ))}
                       </select>
                     )}
-                    <button className="icon" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setRenaming({ name: s.name }); setShowDrawer(false); }}>✎</button>
-                    <button className="icon danger" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); handleKill(s.name); }}>✕</button>
+                    <button className="icon" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setRenaming({ name: s.name, _id: s._id }); setShowDrawer(false); }}>✎</button>
+                    <button className="icon danger" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); handleKill(s._id || s.name); }}>✕</button>
                   </div>
                 </div>
               ))}
