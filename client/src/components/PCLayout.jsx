@@ -16,9 +16,9 @@ const SKILLS = [
   { label: 'clasp push',    cmd: 'clasp push\r',          desc: 'GASのコードをGoogle Driveにプッシュする' },
   { label: '中断',          cmd: '\x1b',                  desc: 'Escキーを送信して処理を中断する' },
   { label: 'gh repos',      cmd: 'gh repo list kantsuku --limit 30\r', desc: 'kantsukuのGitHubリポジトリ一覧を表示する' },
-  { label: '/design-view',  cmd: '/design-view\r',        desc: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェック' },
-  { label: '/propose',      cmd: '/propose\r',            desc: 'UX・機能・パフォーマンスなど改善案をAIが提案する' },
-  { label: '/health-check', cmd: '/health-check\r',       desc: 'クラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出す' },
+  { label: 'デザインチェック', cmd: 'フォント・スペーシング・カラー・レスポンシブなどUIデザインを一括チェックして、問題があれば修正して\r', desc: 'UIデザインを一括チェック' },
+  { label: '改善提案',       cmd: 'このプロジェクトのUX・機能・パフォーマンスについて改善案を提案して\r', desc: '改善案をAIが提案する' },
+  { label: 'ヘルスチェック', cmd: 'このプロジェクトのクラッシュ・バグ・メモリリーク・セキュリティ問題を洗い出して、問題があれば修正して\r', desc: '問題を洗い出して修正する' },
   { label: 'プロジェクト構築', cmd: 'このディレクトリに新規プロジェクトを構築して。以下の手順で進めて：\n1. まずどんなプロジェクトを作りたいかヒアリングして\n2. CLAUDE.md を作成（プロジェクト概要・技術スタック・ディレクトリ構成・開発ルール）\n3. .gitignore を作成\n4. 必要なパッケージのインストールと初期ファイル生成\n5. git init してinitial commit\n6. GitHubリポジトリを作成してpush（gh repo create）\nまずは何を作るか聞いて。\r', desc: '新規プロジェクトの初期構築をAIがヒアリングしながら行う' },
 ];
 
