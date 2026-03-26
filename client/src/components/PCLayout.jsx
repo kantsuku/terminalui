@@ -71,14 +71,14 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     if (initializedRef.current || sessions.length === 0) return;
     initializedRef.current = true;
     if (!localStorage.getItem(activeKey)) {
-      setActiveSessions(sessions.slice(0, 3).map(s => s.name));
+      setActiveSessions(sessions.slice(0, 3).map(s => s._id || s.name));
     }
   }, [sessions, activeKey]);
 
   // セッションが消えたら除去（新セッションは自動追加しない）
   useEffect(() => {
-    const names = new Set(sessions.map(s => s.name));
-    setActiveSessions(prev => prev.filter(n => names.has(n)));
+    const ids = new Set(sessions.map(s => s._id || s.name));
+    setActiveSessions(prev => prev.filter(n => ids.has(n)));
   }, [sessions]);
 
   const toggleSession = useCallback((name) => {
