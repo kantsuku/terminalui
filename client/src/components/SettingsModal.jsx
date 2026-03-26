@@ -106,7 +106,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   };
 
   const handleDeleteChar = () => {
-    if (characters.length <= 1) { alert('最後のキャラは削除できないっちゃ'); return; }
+    if (characters.length <= 1) { alert('最後のキャラは削除できません'); return; }
     if (!confirm(`「${selectedChar.name}」を削除しますか？`)) return;
     const next = characters.filter(c => c.id !== selectedCharId);
     setCharacters(next);
@@ -148,7 +148,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
       }
     } catch {
       setUpdateStatus('error');
-      setUpdateMsg('サーバーに繋がらないっちゃ');
+      setUpdateMsg('サーバーに繋がりません');
     }
   };
 
@@ -299,7 +299,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {tab === 'lines' && (
             <div className="sm-section">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <p className="sm-hint" style={{ margin: 0 }}>1行につき1セリフ。空行は無視されるっちゃ。</p>
+                <p className="sm-hint" style={{ margin: 0 }}>1行につき1セリフ。空行は無視されます。</p>
                 <button
                   className="primary"
                   style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}
@@ -323,9 +323,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                           offlineLines: data.lines.offlineLines || selectedChar.offlineLines,
                         });
                       } else {
-                        alert(data.error || '生成失敗っちゃ');
+                        alert(data.error || '生成失敗');
                       }
-                    } catch { alert('通信エラーっちゃ'); }
+                    } catch { alert('通信エラー'); }
                     finally { setGenerating(false); }
                   }}
                 >
@@ -357,7 +357,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
           {tab === 'system' && (
             <div className="sm-section">
               <label className="sm-label">Anthropic APIキー</label>
-              <p className="sm-hint">セリフ自動生成に使うっちゃ。保存するとサーバーの.envに書き込まれるっちゃ。</p>
+              <p className="sm-hint">セリフ自動生成に使います。保存するとサーバーの.envに書き込まれます。</p>
               {!apiKeyLoaded && (
                 <button className="primary" style={{ width: '100%', padding: '8px', fontSize: 13, marginBottom: 8 }}
                   onClick={async () => {
@@ -398,12 +398,12 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
               )}
 
               <label className="sm-label" style={{ marginTop: 20 }}>プッシュ通知（ntfy.sh）</label>
-              <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届くっちゃ。</p>
+              <p className="sm-hint">ntfyアプリでトピックを購読すると、完了・質問時にスマホに通知が届きます。</p>
               <input className="sm-input" value={ntfyTopic} onChange={e => setNtfyTopic(e.target.value)}
                 placeholder="例: termui-yourname-abc123" />
 
               <label className="sm-label" style={{ marginTop: 20 }}>キャラクター配布</label>
-              <p className="sm-hint">現在のキャラクター設定（画像・セリフ含む）を全ユーザーに反映するっちゃ。</p>
+              <p className="sm-hint">現在のキャラクター設定（画像・セリフ含む）を全ユーザーに反映します。</p>
               <button className="primary" style={{ width: '100%', padding: '10px', fontSize: 14 }}
                 disabled={broadcastStatus === 'loading'}
                 onClick={async () => {
@@ -429,7 +429,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
               </button>
 
               <label className="sm-label" style={{ marginTop: 20 }}>アップデート</label>
-              <p className="sm-hint">GitHubから最新版を取得してビルド・再起動するっちゃ。</p>
+              <p className="sm-hint">GitHubから最新版を取得してビルド・再起動します。</p>
               <button className="primary" style={{ width: '100%', padding: '10px', fontSize: 14 }}
                 onClick={handleUpdate}
                 disabled={updateStatus === 'loading' || updateStatus === 'done'}>

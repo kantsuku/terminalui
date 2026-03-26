@@ -191,7 +191,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       setIsWorking(prev => {
         if (prev) {
           playDoneSound();
-          notify('⚡ ちゅどーん！できたっちゃ！', `${activeSessionRef.current?.name || 'セッション'} うち、やりとげたっちゃよ！`);
+          notify('⚡ 完了！', `${activeSessionRef.current?.name || 'セッション'} の処理が終わりました`);
           setIsDone(true);
           clearTimeout(doneTimerRef.current);
           doneTimerRef.current = setTimeout(() => setIsDone(false), 3000);
@@ -271,10 +271,10 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         const idx = updated.findIndex(s => s.name === res.name);
         setActiveIdx(idx !== -1 ? idx : Math.max(updated.length - 1, 0));
       } else {
-        alert(`セッション作成に失敗っちゃ: ${res?.error || '不明なエラー'}`);
+        alert(`セッション作成に失敗: ${res?.error || '不明なエラー'}`);
       }
     } catch (e) {
-      alert(`セッション作成エラーっちゃ: ${e.message}`);
+      alert(`セッション作成エラー: ${e.message}`);
     }
   }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
@@ -440,7 +440,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         <span className="ml-statusbar-right">
           {connState !== 'connected' && (
             <button className="ml-reconnect-btn" onPointerDown={e => { e.preventDefault(); panelRef.current?.reconnect(); }}>
-              もっかいっちゃ！
+              再接続
             </button>
           )}
           {sessions.length > 1 && (
@@ -471,8 +471,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
           />
         ) : (
           <div className="ml-empty">
-            <div>セッションがないっちゃ〜のけ？</div>
-            <button className="primary" onPointerDown={() => setShowNewModal(true)}>＋ うちと一緒にはじめるっちゃ！</button>
+            <div>セッションがありません</div>
+            <button className="primary" onPointerDown={() => setShowNewModal(true)}>＋ 新規セッション</button>
           </div>
         )}
       </div>
@@ -585,7 +585,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                   key={s.name}
                   className={`ml-drawer-item ${i === activeIdx ? 'active' : ''}`}
                   style={{ touchAction: 'manipulation' }}
-                  onClick={() => { setActiveIdx(i); setShowDrawer(false); }}
+                  onPointerDown={() => { setActiveIdx(i); setShowDrawer(false); }}
                 >
                   <span className={`dot ${statusClass(s)}`} />
                   <div className="ml-drawer-info">

@@ -134,7 +134,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     t.working = setTimeout(() => {
       setPanelCharStates(prev => {
         if (prev[name] === 'working') {
-          notify('⚡ ちゅどーん！できたっちゃ！', `${name} うち、やりとげたっちゃよ！`);
+          notify('⚡ 完了！', `${name} の処理が終わりました`);
           clearTimeout(t.done);
           setDisplayState(name, 'success');
           t.done = setTimeout(() => {
@@ -280,7 +280,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                 <div className="session-info">
                   <div className="session-name">{s.name}</div>
                   <div className={`session-status ${working ? 'session-status--working' : 'session-status--idle'}`}>
-                    {working ? '● やってるっちゃ！' : '○ 待機中'}
+                    {working ? '● 作業中' : '○ 待機中'}
                   </div>
                 </div>
                 <div className="session-actions" onClick={e => e.stopPropagation()}>
@@ -307,7 +307,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
       <div className="main-area" ref={mainAreaRef}>
         {count === 0 ? (
           <div className="panel-empty" style={{ flex: 1 }}>
-            <div>左のセッション一覧をクリックして表示するっちゃ！</div>
+            <div>左のセッション一覧をクリックして表示</div>
             <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>最大3セッション同時表示</div>
           </div>
         ) : (

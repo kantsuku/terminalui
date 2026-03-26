@@ -8,7 +8,11 @@ const crypto = require('crypto');
 const multer = require('multer');
 const os = require('os');
 
-const { execSync } = require('child_process');
+const { exec, execFile, execSync } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const TMUX = process.env.TMUX_BIN || '/opt/homebrew/bin/tmux';
 const { listSessions, createSession, killSession, sessionExists, renameSession } = require('./lib/tmux');
 const { attachSession } = require('./lib/ptyManager');
 
@@ -196,7 +200,7 @@ app.post('/api/user-settings/:userName', async (req, res) => {
 app.post('/api/broadcast-characters', (req, res) => {
   try {
     const { characters } = req.body || {};
-    if (!characters?.length) return res.status(400).json({ error: 'characters が空っちゃ' });
+    if (!characters?.length) return res.status(400).json({ error: 'characters が空です' });
     const files = fs.readdirSync(SETTINGS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('_'));
     let updated = 0;
     for (const f of files) {
@@ -234,7 +238,7 @@ app.post('/api/login', (req, res) => {
   if (!ACCESS_PASSWORD) return res.json({ ok: true });
   const { password } = req.body;
   if (password !== ACCESS_PASSWORD) {
-    return res.status(401).json({ error: 'パスワードが違うっちゃ！' });
+    return res.status(401).json({ error: 'パスワードが違います' });
   }
   const token = makeToken();
   const maxAge = 60 * 60 * 24 * 30; // 30日
@@ -246,9 +250,9 @@ app.post('/api/login', (req, res) => {
 function buildManifest(userName) {
   const iconUrl = `/api/icon?user=${encodeURIComponent(userName)}`;
   return {
-    name: 'ラムちゃんターミナル',
-    short_name: 'ラムちゃん',
-    description: 'ラムちゃんがお手伝いするターミナルUIだっちゃ！',
+    name: 'Terminal UI',
+    short_name: 'TermUI',
+    description: 'ターミナルUI',
     start_url: '/',
     display: 'standalone',
     background_color: '#0d1117',
@@ -380,7 +384,43 @@ app.post('/api/sessions', async (req, res) => {
   console.log(`[POST /api/sessions] tmux=${tmuxName} display="${displayName}" type=${type} from=${req.ip}`);
   try {
     const command = type === 'claude' ? 'claude' : undefined;
-    const sessionName = await createSession(tmuxName, command, systemPrompt);
+    // Claude セッションの場合、リポジトリ一覧をシステムプロンプトに含める
+    let finalPrompt = systemPrompt || '';
+    if (type === 'claude') {
+      try {
+        const { stdout } = await execAsync(
+          'PATH="$PATH:/opt/homebrew/bin:/usr/local/bin" gh repo list kantsuku --limit 30 2>/dev/null'
+        );
+        const repoList = stdout.trim();
+        if (repoList) {
+          finalPrompt += `\n\nユーザーからの最初の発言を受け取ったら、まず以下のリポジトリ一覧を見やすいテーブル形式（番号付き）で表示し、最後の選択肢として「🆕 新しいプロジェクトを作る」も追加して、「今日はどれをやる？」と聞いてください。ユーザーが具体的な作業指示をしてきた場合はそちらを優先してOKです。ユーザーが新規プロジェクトを選んだ場合は、以下の手順で進めてください：\n1. まずどんなプロジェクトを作りたいかヒアリングする\n2. CLAUDE.md を作成（プロジェクト概要・技術スタック・ディレクトリ構成・開発ルール）\n3. .gitignore を作成\n4. 必要なパッケージのインストールと初期ファイル生成\n5. git init してinitial commit\n6. GitHubリポジトリを作成してpush（gh repo create）\n\nリポジトリ一覧:\n${repoList}`;
+        }
+      } catch {}
+    }
+    const sessionName = await createSession(tmuxName, command, finalPrompt || undefined);
+    // Claude起動後にリポ一覧表示を自動トリガー（入力待ちプロンプトを検知してから送信）
+    if (type === 'claude') {
+      (async () => {
+        const maxWait = 30000;
+        const interval = 1000;
+        const start = Date.now();
+        while (Date.now() - start < maxWait) {
+          await new Promise(r => setTimeout(r, interval));
+          try {
+            const { stdout } = await execAsync(`${TMUX} capture-pane -t "${sessionName}" -p 2>/dev/null`);
+            const lastLine = stdout.split('\n').filter(l => l.trim()).pop() || '';
+            // Claude Codeの入力プロンプト ">" を検知
+            if (/\? for shortcuts/.test(stdout)) {
+              console.log(`[AUTO] Claude ready, waiting 1s then sending to ${sessionName}`);
+              await new Promise(r => setTimeout(r, 1000));
+              await execFileAsync(TMUX, ['send-keys', '-t', sessionName, 'リポジトリ一覧を出して', 'Enter']);
+              console.log(`[AUTO] sent OK`);
+              break;
+            }
+          } catch {}
+        }
+      })();
+    }
     const internalName = stripPrefix(user, sessionName);
     // displayNames マッピングを保存
     displayNames[internalName] = displayName;
@@ -433,7 +473,7 @@ app.get('/api/api-key', (req, res) => {
 });
 app.post('/api/api-key', (req, res) => {
   const { apiKey } = req.body || {};
-  if (!apiKey) return res.status(400).json({ error: 'APIキーが空っちゃ' });
+  if (!apiKey) return res.status(400).json({ error: 'APIキーが空です' });
   try {
     let envContent = '';
     if (fs.existsSync(envPath)) envContent = fs.readFileSync(envPath, 'utf8');
@@ -451,7 +491,7 @@ app.post('/api/api-key', (req, res) => {
 app.post('/api/generate-lines', async (req, res) => {
   const { charName, claudePrompt } = req.body || {};
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'APIキーが未設定。システムタブで設定してっちゃ' });
+  if (!apiKey) return res.status(500).json({ error: 'APIキーが未設定です。システムタブで設定してください' });
   try {
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic.default({ apiKey });

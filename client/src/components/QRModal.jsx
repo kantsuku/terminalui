@@ -42,7 +42,7 @@ export default function QRModal({ onClose }) {
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)' }}>スマホでスキャンっちゃ！</div>
+        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)' }}>スマホでスキャン</div>
 
         <canvas ref={canvasRef} style={{ borderRadius: 8 }} />
 
