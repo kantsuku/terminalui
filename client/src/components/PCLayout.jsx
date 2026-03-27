@@ -3,6 +3,7 @@ import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
 import QRModal from './QRModal';
+import HistoryView from './HistoryView';
 import { getCharForSession } from '../hooks/useSettings';
 import './PCLayout.css';
 
@@ -508,14 +509,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
       {Object.entries(panelHistory).map(([sName, content]) =>
         content !== null ? (
           <div key={sName} className="modal-backdrop" onClick={() => setPanelHistory(p => ({ ...p, [sName]: null }))}>
-            <div className="modal" style={{ width: 700, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent)' }}>履歴 — {sName}</span>
-                <button className="icon" onClick={() => setPanelHistory(p => ({ ...p, [sName]: null }))}>✕</button>
-              </div>
-              <pre ref={el => { if (el && !el.dataset.scrolled) { el.scrollTop = el.scrollHeight; el.dataset.scrolled = 'true'; } }} style={{ flex: 1, overflow: 'auto', margin: 0, color: 'var(--text)', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                {content}
-              </pre>
+            <div style={{ width: '90vw', maxWidth: 800, height: '85vh' }} onClick={e => e.stopPropagation()}>
+              <HistoryView content={content} onClose={() => setPanelHistory(p => ({ ...p, [sName]: null }))} />
             </div>
           </div>
         ) : null

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import TerminalPanel from './TerminalPanel';
 import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
+import HistoryView from './HistoryView';
 import { getCharForSession } from '../hooks/useSettings';
 import './MobileLayout.css';
 
@@ -640,20 +641,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
 
     {/* 履歴: document.body に portal → position:fixed 祖先の iOS スクロールバグを回避 */}
     {!!history && createPortal(
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: '#0d1117', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 'env(safe-area-inset-top, 0px) 16px 10px', borderBottom: '1px solid #30363d' }}>
-          <span style={{ color: '#e6edf3', fontWeight: 700, fontSize: 14 }}>履歴</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button style={{ background: '#21262d', border: '1px solid #30363d', borderRadius: 8, color: '#e6edf3', fontSize: 12, padding: '6px 14px', cursor: 'pointer' }} onClick={() => { if (historyScrollRef.current) historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight; }}>↓ 最下部</button>
-            <button style={{ background: 'transparent', border: 'none', color: '#e6edf3', fontSize: 22, padding: '4px 4px', cursor: 'pointer', lineHeight: 1 }} onClick={() => setHistory(null)}>✕</button>
-          </div>
-        </div>
-        <div ref={historyScrollRef} style={{ height: 'calc(var(--vvh, 100dvh) - 44px - env(safe-area-inset-top, 0px))', overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}>
-          <pre style={{ margin: 0, padding: '12px', color: '#e6edf3', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'hidden' }}>
-            {history}
-          </pre>
-        </div>
-      </div>,
+      <HistoryView content={history} onClose={() => setHistory(null)} />,
       document.body
     )}
     </>

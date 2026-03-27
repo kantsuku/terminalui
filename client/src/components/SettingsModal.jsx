@@ -115,10 +115,21 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
     if (defaultCharId === selectedCharId) setDefaultCharId(newSel);
   };
 
+  const LINE_KEYS = ['idleLines', 'workingLines', 'thinkingLines', 'successLines', 'errorLines', 'offlineLines'];
+
   const handleSave = () => {
+    const cleaned = characters.map(c => {
+      const copy = { ...c };
+      for (const k of LINE_KEYS) {
+        if (Array.isArray(copy[k])) {
+          copy[k] = copy[k].map(l => l.trim()).filter(Boolean);
+        }
+      }
+      return copy;
+    });
     onSave({
       ntfyTopic,
-      characters,
+      characters: cleaned,
       defaultCharId,
       sessionChars: settings.sessionChars || {},
     });
@@ -347,7 +358,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                   </div>
                   <textarea className="sm-textarea" rows={6}
                     value={(selectedChar[key] || []).join('\n')}
-                    onChange={e => updateChar({ [key]: e.target.value.split('\n').map(l => l.trim()).filter(Boolean) })} />
+                    onChange={e => updateChar({ [key]: e.target.value.split('\n') })} />
                 </div>
               ))}
             </div>
