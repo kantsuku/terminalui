@@ -46,17 +46,28 @@ function parseBlocks(text) {
 
     // ツール実行のヘッダー検出（罫線、ツール名）
     // ただしassistant/humanブロック内の装飾罫線はtoolに切り替えない
-    const isToolHeader = /^(Read|Edit|Write|Bash|Glob|Grep|Search|Agent|Plan)(\(| )/.test(trimmed);
+    const toolMatch = trimmed.match(/^(?:⏺\s*)?(Read|Edit|Update|Write|Bash|Glob|Grep|Search|Agent|Plan)(\(| )/);
+    const isToolHeader = !!toolMatch;
     const isBoxBorder = /^[╭╮╰╯┌┐└┘│┃]/.test(trimmed);
     const isDivider = /^[─━]{4,}$/.test(trimmed);
-    if (isToolHeader || isBoxBorder || (isDivider && current?.type !== 'assistant' && current?.type !== 'human')) {
-      if (current?.type !== 'tool') flush();
-      if (!current) current = { type: 'tool', lines: [] };
+    if (isToolHeader || (isBoxBorder && current?.type !== 'assistant' && current?.type !== 'human') || (isDivider && current?.type !== 'assistant' && current?.type !== 'human')) {
+      // 新しいツールヘッダーなら前のブロックをflushして新ブロック開始
+      if (isToolHeader) {
+        flush();
+        const toolName = toolMatch[1];
+        // Bash( の後のコマンド部分を抽出
+        const cmdMatch = trimmed.match(/^(?:⏺\s*)?(?:Read|Edit|Write|Bash|Glob|Grep|Search|Agent|Plan)\((.+)/);
+        const cmdPreview = cmdMatch ? cmdMatch[1].replace(/\)$/, '').trim() : '';
+        current = { type: 'tool', toolName, cmdPreview, lines: [] };
+      } else {
+        if (current?.type !== 'tool') flush();
+        if (!current) current = { type: 'tool', lines: [] };
+      }
       current.lines.push(line);
       continue;
     }
-    // assistant/human内の罫線はそのまま含める
-    if (isDivider && (current?.type === 'assistant' || current?.type === 'human')) {
+    // assistant/human内の罫線・テーブルはそのまま含める
+    if ((isDivider || isBoxBorder) && (current?.type === 'assistant' || current?.type === 'human')) {
       current.lines.push(line);
       continue;
     }
@@ -142,10 +153,10 @@ function Linkify({ text }) {
 }
 
 /** 折りたたみ可能なブロック */
-function CollapsibleBlock({ type, label, labelClass, lines, defaultOpen }) {
+function CollapsibleBlock({ type, label, labelClass, lines, defaultOpen, preview: previewProp }) {
   const [open, setOpen] = useState(defaultOpen);
   const lineCount = lines.length;
-  const preview = lines.find(l => l.trim())?.trim().slice(0, 50) || '';
+  const preview = previewProp || lines.find(l => l.trim())?.trim().slice(0, 50) || '';
 
   return (
     <div className={`hv-block hv-block--${type}`}>
@@ -193,9 +204,12 @@ export default function HistoryView({ content, onClose }) {
           <div className="hv-empty">履歴がありません</div>
         )}
         {blocks.map((block, i) => {
-          // tool / code は常に折りたたみ
+          // tool は折りたたみ（日本語を含む内容はデフォルト展開）
           if (block.type === 'tool') {
-            return <CollapsibleBlock key={i} type="tool" label="Tool" labelClass="hv-label--tool" lines={block.lines} defaultOpen={false} />;
+            const toolLabel = block.toolName || 'Tool';
+            const labelCls = block.toolName === 'Bash' ? 'hv-label--bash' : 'hv-label--tool';
+            const hasCJK = block.lines.some(l => CJK_RE.test(l));
+            return <CollapsibleBlock key={i} type="tool" label={toolLabel} labelClass={labelCls} lines={block.lines} defaultOpen={hasCJK} preview={block.cmdPreview} />;
           }
           if (block.type === 'code') {
             return <CollapsibleBlock key={i} type="code" label="Code" labelClass="hv-label--code" lines={block.lines} defaultOpen={false} />;
