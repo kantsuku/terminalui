@@ -85,6 +85,7 @@
   border-radius: 0;
   color: var(--text-muted);
   margin-bottom: -1px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 .sm-tab:hover { color: var(--text); background: var(--bg3); }
 .sm-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -224,8 +225,9 @@
   border-radius: 6px;
   background: transparent;
   border-width: 1px;
+  transition: opacity 0.15s, background 0.15s;
 }
-.sm-preset:hover { opacity: 0.8; }
+.sm-preset:hover { opacity: 0.85; background: rgba(255,255,255,0.05); }
 
 /* セリフ */
 .sm-hint {

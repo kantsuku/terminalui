@@ -2,7 +2,7 @@
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 9999;
-  background: #0d1117;
+  background: var(--bg, #0d1117);
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -22,12 +22,12 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border, #1e3d2f);
   flex-shrink: 0;
 }
 
 .hv-title {
-  color: #e6edf3;
+  color: var(--text, #e6edf3);
   font-weight: 700;
   font-size: 16px;
 }
@@ -39,29 +39,38 @@
 }
 
 .hv-btn {
-  background: #21262d;
-  border: 1px solid #30363d;
+  background: var(--bg3, #162118);
+  border: 1px solid var(--border, #1e3d2f);
   border-radius: 8px;
-  color: #e6edf3;
+  color: var(--text, #e6edf3);
   font-size: 13px;
   padding: 6px 14px;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.hv-btn:hover {
+  border-color: var(--accent, #00d4aa);
 }
 
 .hv-close {
   background: transparent;
   border: none;
-  color: #e6edf3;
+  color: var(--text, #e6edf3);
   font-size: 22px;
   padding: 4px;
   cursor: pointer;
   line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.hv-close:hover {
+  opacity: 0.7;
 }
 
 .hv-scroll {
   flex: 1;
   overflow-y: scroll;
-  -webkit-overflow-scrolling: touch;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -69,7 +78,7 @@
 }
 
 .hv-empty {
-  color: #484f58;
+  color: var(--text-muted, #7a9e8a);
   text-align: center;
   padding: 40px 0;
   font-size: 15px;
@@ -87,15 +96,15 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
-  color: #8b949e;
+  color: var(--text-muted, #7a9e8a);
 }
 
 .hv-label--assistant {
-  color: #f0883e;
+  color: var(--orange, #f0883e);
 }
 
 .hv-label--tool {
-  color: #58a6ff;
+  color: var(--blue, #58a6ff);
 }
 
 .hv-content {
@@ -108,51 +117,51 @@
 
 /* ── ユーザーブロック ── */
 .hv-block--human {
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--bg2, #0f1a16);
+  border: 1px solid var(--border, #1e3d2f);
 }
 
 .hv-block--human .hv-content {
-  color: #e6edf3;
+  color: var(--text, #e6edf3);
   font-weight: 500;
 }
 
 /* ── アシスタントブロック ── */
 .hv-block--assistant {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: var(--bg2, #0f1a16);
+  border: 1px solid var(--border, #1e3d2f);
 }
 
 .hv-block--assistant .hv-content {
-  color: #e6edf3;
+  color: var(--text, #e6edf3);
 }
 
 /* ── ツールブロック ── */
 .hv-block--tool {
-  background: #0d1520;
-  border: 1px solid #1a2332;
+  background: var(--bg, #0a0f0d);
+  border: 1px solid var(--border, #1e3d2f);
   padding: 0;
 }
 
 .hv-block--tool .hv-content {
   font-size: 13px;
   line-height: 1.5;
-  color: #8b949e;
+  color: var(--text-muted, #7a9e8a);
   font-family: "JetBrains Mono", "Menlo", monospace;
   padding: 8px 14px 10px;
 }
 
 /* ── コードブロック ── */
 .hv-block--code {
-  background: #0d1117;
-  border: 1px solid #1a2332;
+  background: var(--bg, #0a0f0d);
+  border: 1px solid var(--border, #1e3d2f);
   padding: 0;
 }
 
 .hv-block--code .hv-content {
   font-size: 13px;
   line-height: 1.5;
-  color: #7d8590;
+  color: var(--text-muted, #7a9e8a);
   font-family: "JetBrains Mono", "Menlo", monospace;
   padding: 8px 14px 10px;
 }
@@ -167,6 +176,7 @@
   user-select: none;
   -webkit-user-select: none;
   gap: 8px;
+  transition: opacity 0.15s;
 }
 
 .hv-collapse-header:active {
@@ -187,7 +197,7 @@
 
 .hv-collapse-preview {
   font-size: 14px;
-  color: #484f58;
+  color: var(--text-muted, #7a9e8a);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -197,27 +207,27 @@
 
 .hv-collapse-count {
   font-size: 12px;
-  color: #484f58;
+  color: var(--text-muted, #7a9e8a);
   flex-shrink: 0;
 }
 
 .hv-collapse-arrow {
   font-size: 10px;
-  color: #484f58;
+  color: var(--text-muted, #7a9e8a);
   flex-shrink: 0;
 }
 
 .hv-label--code {
-  color: #7d8590;
+  color: var(--text-muted, #7a9e8a);
 }
 
 .hv-label--bash {
-  color: #3fb950;
+  color: var(--green, #00d4aa);
 }
 
 /* ── リンク ── */
 .hv-link {
-  color: #58a6ff;
+  color: var(--blue, #58a6ff);
   text-decoration: underline;
   text-underline-offset: 2px;
   word-break: break-all;
