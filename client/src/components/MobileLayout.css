@@ -173,6 +173,11 @@
   bottom: 10px;
   background: #fff;
   border: 2.5px solid #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   border-radius: 12px;
   padding: 5px 12px;
   font-size: 12px;
@@ -219,9 +224,11 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.ml-statusbar--ok   { background: var(--accent-dim, #051a0e); color: var(--accent); }
-.ml-statusbar--warn { background: #2e2510; color: #d29922; }
-.ml-statusbar--err  { background: #2e0d0d; color: #f85149; }
+.ml-statusbar--ok      { background: var(--accent-dim, #051a0e); color: var(--accent); }
+.ml-statusbar--warn    { background: #2e2510; color: #d29922; }
+.ml-statusbar--err     { background: #2e0d0d; color: #f85149; }
+.ml-statusbar--warning { background: #3d2800; color: #ffd700; animation: pulse-warning 1s ease-in-out infinite; }
+@keyframes pulse-warning { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
 .ml-statusbar-right {
   display: flex;
@@ -440,9 +447,11 @@
 .ml-textarea {
   flex: 1;
   resize: none;
-  height: 52px;
+  min-height: 42px;
+  max-height: 120px;
   font-size: 15px;
   line-height: 1.5;
+  overflow-y: auto;
   padding: 8px 10px;
   border-radius: 8px;
 }

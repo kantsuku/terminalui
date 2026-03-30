@@ -51,7 +51,7 @@ function makeTheme(accent) {
 }
 
 const TerminalPanel = forwardRef(function TerminalPanel(
-  { sessionName, userName = 'default', mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput },
+  { sessionName, userName = 'default', mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput, onPromptBlocked },
   ref
 ) {
   const containerRef = useRef(null);
@@ -65,9 +65,11 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   const onOutputRef   = useRef(onOutput);
   const onInputRef    = useRef(onInput);
   const onActivityRef = useRef(onActivity);
+  const onPromptBlockedRef = useRef(onPromptBlocked);
   onOutputRef.current   = onOutput;
   onInputRef.current    = onInput;
   onActivityRef.current = onActivity;
+  onPromptBlockedRef.current = onPromptBlocked;
   const [connState, setConnState] = useState('disconnected');
 
 
@@ -245,6 +247,10 @@ const TerminalPanel = forwardRef(function TerminalPanel(
             term.write('\r\n\x1b[90m[session ended]\x1b[0m\r\n');
             break;
           case 'error':  term.write(`\r\n\x1b[31m[error: ${msg.message}]\x1b[0m\r\n`); break;
+          case 'autoyes-blocked':
+            term.write(`\r\n\x1b[33m[⚠ 半自動: 要判断 — 手動で応答してください]\x1b[0m\r\n`);
+            onPromptBlockedRef.current?.();
+            break;
         }
       };
     };

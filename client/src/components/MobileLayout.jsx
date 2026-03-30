@@ -54,6 +54,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [isThinking,       setIsThinking]       = useState(false);
   const [isDone,           setIsDone]           = useState(false);
   const [isError,          setIsError]          = useState(false);
+  const [promptWaiting,    setPromptWaiting]    = useState(false);
   const [charTick,         setCharTick]         = useState(0);
   const [displayCharState, setDisplayCharState] = useState('idle');
   const workingTimerRef   = useRef(null);
@@ -250,6 +251,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     setInputHistory(h => [t, ...h.filter(x => x !== t)].slice(0, 50));
     inputHistoryIdxRef.current = -1;
     setInputText('');
+    if (textareaRef.current) { textareaRef.current.style.height = 'auto'; }
     textareaRef.current?.blur();
   }, [inputText]);
 
@@ -448,8 +450,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       })()}
 
       {/* ステータスバー */}
-      <div className={`ml-statusbar ml-statusbar--${statusInfo.cls}`}>
-        <span>● {statusInfo.label}</span>
+      <div className={`ml-statusbar ml-statusbar--${promptWaiting ? 'warning' : statusInfo.cls}`}>
+        <span>{promptWaiting ? '⏸ 要判断！' : `● ${statusInfo.label}`}</span>
         <span className="ml-statusbar-right">
           {connState !== 'connected' && (
             <button className="ml-reconnect-btn" onPointerDown={e => { e.preventDefault(); panelRef.current?.reconnect(); }}>
@@ -481,6 +483,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             onActivity={handleActivity}
             onOutput={handleOutput}
             onInput={handleInput}
+            onPromptBlocked={() => { setPromptWaiting(true); showToast('⚠️ 要判断！手動で応答してください', 'error', 5000); setTimeout(() => setPromptWaiting(false), 10000); }}
           />
         ) : (
           <div className="ml-empty">
@@ -568,7 +571,13 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               ref={textareaRef}
               className="ml-textarea"
               value={inputText}
-              onChange={e => setInputText(e.target.value)}
+              onChange={e => {
+                setInputText(e.target.value);
+                // textarea 高さ自動伸縮
+                const ta = e.target;
+                ta.style.height = 'auto';
+                ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+              }}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendInput(); } }}
               placeholder="コマンド入力..."
               autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
