@@ -7,19 +7,24 @@ export function useSessions(userName = 'default') {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/sessions?user=${encodeURIComponent(userName)}`);
+      const res = await fetch(`/api/sessions?user=${encodeURIComponent(userName)}`, {
+        signal: AbortSignal.timeout(10000),
+      });
       const data = await res.json();
       setSessions(data);
       return data;
-    } catch {
+    } catch (e) {
+      console.warn('[useSessions] fetch error:', e.message);
       return [];
     }
   }, [userName]);
 
+  const getInterval = useCallback(() => document.hidden ? 30000 : 5000, []);
+
   const startPolling = useCallback(() => {
-    if (timerRef.current) return;
-    timerRef.current = setInterval(fetchSessions, 3000);
-  }, [fetchSessions]);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(fetchSessions, getInterval());
+  }, [fetchSessions, getInterval]);
 
   const stopPolling = useCallback(() => {
     clearInterval(timerRef.current);
@@ -29,7 +34,18 @@ export function useSessions(userName = 'default') {
   useEffect(() => {
     fetchSessions();
     startPolling();
-    return stopPolling;
+
+    const onVisibility = () => {
+      stopPolling();
+      if (!document.hidden) fetchSessions();
+      startPolling();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [fetchSessions, startPolling, stopPolling]);
 
   const createSession = useCallback(async ({ name, type = 'shell', systemPrompt }) => {

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { DEFAULT_CHARACTER } from '../hooks/useSettings';
+import { showToast } from './Toast';
 import './SettingsModal.css';
 
 const CHARACTER_PRESETS = [
@@ -95,7 +96,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
     try {
       const urlPath = await resizeAndUpload(file);
       updateChar({ [key]: urlPath });
-    } catch { alert('画像アップロード失敗'); }
+    } catch { showToast('画像アップロード失敗', 'error'); }
   };
 
   const handleAddChar = () => {
@@ -106,7 +107,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
   };
 
   const handleDeleteChar = () => {
-    if (characters.length <= 1) { alert('最後のキャラは削除できません'); return; }
+    if (characters.length <= 1) { showToast('最後のキャラは削除できません', 'error'); return; }
     if (!confirm(`「${selectedChar.name}」を削除しますか？`)) return;
     const next = characters.filter(c => c.id !== selectedCharId);
     setCharacters(next);
@@ -334,9 +335,9 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                           offlineLines: data.lines.offlineLines || selectedChar.offlineLines,
                         });
                       } else {
-                        alert(data.error || '生成失敗');
+                        showToast(data.error || '生成失敗', 'error');
                       }
-                    } catch { alert('通信エラー'); }
+                    } catch { showToast('通信エラー', 'error'); }
                     finally { setGenerating(false); }
                   }}
                 >
@@ -401,8 +402,8 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                           if (data.ok) {
                             setApiKeyStatus({ masked: apiKeyInput.slice(0, 10) + '...' + apiKeyInput.slice(-4) });
                             setApiKeyInput('');
-                          } else { alert(data.error); setApiKeyStatus(null); }
-                        } catch { alert('通信エラー'); setApiKeyStatus(null); }
+                          } else { showToast(data.error || '保存失敗', 'error'); setApiKeyStatus(null); }
+                        } catch { showToast('通信エラー', 'error'); setApiKeyStatus(null); }
                       }}>保存</button>
                   </div>
                 </>
@@ -431,10 +432,10 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                       setBroadcastStatus('done');
                       setTimeout(() => setBroadcastStatus(null), 3000);
                     } else {
-                      alert(data.error || '反映失敗');
+                      showToast(data.error || '反映失敗', 'error');
                       setBroadcastStatus(null);
                     }
-                  } catch { alert('通信エラー'); setBroadcastStatus(null); }
+                  } catch { showToast('通信エラー', 'error'); setBroadcastStatus(null); }
                 }}>
                 {broadcastStatus === 'loading' ? '反映中…' : broadcastStatus === 'done' ? '反映完了！' : '📢 全ユーザーに反映'}
               </button>

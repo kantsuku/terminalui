@@ -155,7 +155,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
     const term = new Terminal({
       theme: makeTheme(accentColor),
-      fontSize: mobile ? 13 : 12,
+      fontSize: mobile ? 15 : 14,
       fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", "Hiragino Kaku Gothic ProN", "Noto Sans JP", monospace',
       lineHeight: 1.2,
       cursorBlink: !mobile,
@@ -187,6 +187,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     let mounted = true;
     let reconnectTimeout = null;
     let initTimer = null;
+    let backoff = 2000;
 
     const connect = () => {
       if (!mounted) return;
@@ -204,6 +205,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       }, 400);
 
       ws.onopen = () => {
+        backoff = 2000;
         updateState('connected');
         ws.send(JSON.stringify({ type: 'attach', session: sessionName, user: userName, cols: term.cols, rows: term.rows, ntfyTopic }));
       };
@@ -214,7 +216,8 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         wsRef.current = null;
         if (!mounted) return;
         updateState('reconnecting');
-        reconnectTimeout = setTimeout(connect, 2000);
+        reconnectTimeout = setTimeout(connect, backoff);
+        backoff = Math.min(backoff * 2, 30000);
       };
 
       ws.onmessage = (e) => {
@@ -257,12 +260,16 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
     connect();
 
+    let resizeTimer;
     const ro = new ResizeObserver(() => {
-      try { fitAddon.fit(); } catch {}
-      const ws = wsRef.current;
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-      }
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        try { fitAddon.fit(); } catch {}
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+        }
+      }, 150);
     });
     ro.observe(containerRef.current);
 
@@ -283,6 +290,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       mounted = false;
       clearTimeout(reconnectTimeout);
       clearTimeout(initTimer);
+      clearTimeout(resizeTimer);
       ro.disconnect();
       containerRef.current?.removeEventListener('wheel', wheelHandler, { capture: true });
       wsRef.current?.close();

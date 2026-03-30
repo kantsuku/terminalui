@@ -4,6 +4,7 @@ import { useSettings } from './hooks/useSettings';
 import PCLayout from './components/PCLayout';
 import MobileLayout from './components/MobileLayout';
 import SettingsModal from './components/SettingsModal';
+import { useToast, ToastContainer, showToast } from './components/Toast';
 
 function AuthGate({ onAuth }) {
   const [password, setPassword] = useState('');
@@ -99,6 +100,7 @@ function UserGate({ onEnter }) {
 }
 
 function AppMain({ userName }) {
+  const { toasts } = useToast();
   const modeKey = `termui-force-mode-${userName}`;
 
   const [forceMode, setForceMode] = useState(
@@ -149,7 +151,7 @@ function AppMain({ userName }) {
       save(partial);
       setSettings(prev => ({ ...prev, ...partial }));
     } catch (e) {
-      alert(e.message);
+      showToast(e.message, 'error');
     }
   };
 
@@ -179,6 +181,7 @@ function AppMain({ userName }) {
           onClose={() => setShowSettings(false)}
         />
       )}
+      <ToastContainer toasts={toasts} />
     </>
   );
 }
@@ -228,3 +231,8 @@ export default function App() {
 
   return <AppMain userName={safeUrlUser} />;
 }
+
+// Toast animation CSS injection
+const style = document.createElement('style');
+style.textContent = '@keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }';
+document.head.appendChild(style);

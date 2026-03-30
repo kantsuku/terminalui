@@ -5,6 +5,7 @@ import RenameModal from './RenameModal';
 import QRModal from './QRModal';
 import HistoryView from './HistoryView';
 import { getCharForSession } from '../hooks/useSettings';
+import { showToast } from './Toast';
 import './PCLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -476,7 +477,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                             const res = await fetch('/api/upload', { method: 'POST', body: form });
                             const data = await res.json();
                             if (data.path) setPanelInput(p => ({ ...p, [id]: (p[id] || '') + data.path }));
-                          } catch { alert('アップロード失敗'); }
+                          } catch { showToast('アップロード失敗', 'error'); }
                           e.target.value = '';
                         }} />
                       </label>

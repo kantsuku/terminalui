@@ -78,6 +78,11 @@ const upload = multer({
       cb(null, `${Date.now()}${ext}`);
     },
   }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('画像ファイルのみアップロード可能です'), false);
+  },
 });
 
 const app = express();
@@ -161,7 +166,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     execSync(`git add uploads/ && git commit -m "chore: upload image ${req.file.filename}"`, {
       cwd: __dirname, stdio: 'ignore'
     });
-  } catch {}
+  } catch (e) { console.warn('[Upload] git commit skipped:', e.message); }
   res.json({ path: urlPath });
 });
 
@@ -179,7 +184,7 @@ app.get('/api/user-settings/:userName', (req, res) => {
       try {
         const tmpl = JSON.parse(fs.readFileSync(path.join(SETTINGS_DIR, f), 'utf8'));
         if (tmpl.characters?.length > 0) return res.json(tmpl);
-      } catch {}
+      } catch (e) { console.warn('[Settings] parse error:', f, e.message); }
     }
     res.json(null);
   } catch { res.json(null); }
@@ -219,7 +224,7 @@ app.post('/api/broadcast-characters', (req, res) => {
         }
         fs.writeFileSync(p, JSON.stringify(data, null, 2));
         updated++;
-      } catch {}
+      } catch (e) { console.warn('[Broadcast] parse error:', e.message); }
     }
     res.json({ ok: true, updated });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -266,14 +271,6 @@ function buildManifest(userName) {
 }
 
 app.get('/api/manifest.json', (req, res) => {
-  const userName = req.query.user || 'default';
-  res.setHeader('Content-Type', 'application/manifest+json');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.json(buildManifest(userName));
-});
-
-// /manifest.json はURLパラメータのuserを使って動的に返す
-app.get('/manifest.json', (req, res) => {
   const userName = req.query.user || 'default';
   res.setHeader('Content-Type', 'application/manifest+json');
   res.setHeader('Cache-Control', 'no-cache');
@@ -395,7 +392,7 @@ app.post('/api/sessions', async (req, res) => {
         if (repoList) {
           finalPrompt += `\n\nユーザーからの最初の発言を受け取ったら、まず以下のリポジトリ一覧を見やすいテーブル形式（番号付き）で表示し、最後の選択肢として「🆕 新しいプロジェクトを作る」も追加して、「今日はどれをやる？」と聞いてください。ユーザーが具体的な作業指示をしてきた場合はそちらを優先してOKです。ユーザーが新規プロジェクトを選んだ場合は、以下の手順で進めてください：\n1. まずどんなプロジェクトを作りたいかヒアリングする\n2. CLAUDE.md を作成（プロジェクト概要・技術スタック・ディレクトリ構成・開発ルール）\n3. .gitignore を作成\n4. 必要なパッケージのインストールと初期ファイル生成\n5. git init してinitial commit\n6. GitHubリポジトリを作成してpush（gh repo create）\n\nリポジトリ一覧:\n${repoList}`;
         }
-      } catch {}
+      } catch (e) { console.warn('[Session] repo list fetch failed:', e.message); }
     }
     const sessionName = await createSession(tmuxName, command, finalPrompt || undefined);
     // Claude起動後にリポ一覧表示を自動トリガー（入力待ちプロンプトを検知してから送信）
@@ -417,7 +414,7 @@ app.post('/api/sessions', async (req, res) => {
               console.log(`[AUTO] sent OK`);
               break;
             }
-          } catch {}
+          } catch (e) { console.warn('[AUTO] capture-pane error:', e.message); }
         }
       })();
     }

@@ -5,6 +5,7 @@ import NewSessionModal from './NewSessionModal';
 import RenameModal from './RenameModal';
 import HistoryView from './HistoryView';
 import { getCharForSession } from '../hooks/useSettings';
+import { showToast } from './Toast';
 import './MobileLayout.css';
 
 function statusClass(s) { return s.status === 'active' ? 'active' : 'idle'; }
@@ -136,7 +137,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       const data = await res.json();
       if (data.path) setInputText(prev => prev + data.path);
     } catch {
-      alert('アップロード失敗');
+      showToast('アップロード失敗', 'error');
     }
     e.target.value = '';
   };
@@ -272,10 +273,10 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         const idx = updated.findIndex(s => s.name === res.name);
         setActiveIdx(idx !== -1 ? idx : Math.max(updated.length - 1, 0));
       } else {
-        alert(`セッション作成に失敗: ${res?.error || '不明なエラー'}`);
+        showToast(`セッション作成に失敗: ${res?.error || '不明なエラー'}`, 'error');
       }
     } catch (e) {
-      alert(`セッション作成エラー: ${e.message}`);
+      showToast(`セッション作成エラー: ${e.message}`, 'error');
     }
   }, [createSession, fetchSessions, settings.characters, settings.sessionChars, onSaveSettings]);
 
