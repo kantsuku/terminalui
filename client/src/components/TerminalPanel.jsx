@@ -251,6 +251,9 @@ const TerminalPanel = forwardRef(function TerminalPanel(
             term.write(`\r\n\x1b[33m[⚠ 半自動: 要判断 — 手動で応答してください]\x1b[0m\r\n`);
             onPromptBlockedRef.current?.();
             break;
+          case 'autoyes-learned':
+            term.write(`\r\n\x1b[36m[🧠 学習: "${msg.keyword}" → 次回から自動応答]\x1b[0m\r\n`);
+            break;
         }
       };
     };

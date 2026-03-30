@@ -235,6 +235,20 @@ app.post('/api/error-report', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── 学習済みAutoYESパターン API ──────────────────────────────────────────────
+const { loadLearnedPatterns, deleteLearnedPattern } = require('./lib/learnedPatterns');
+
+app.get('/api/learned-patterns', (req, res) => {
+  res.json(loadLearnedPatterns());
+});
+
+app.delete('/api/learned-patterns/:index', (req, res) => {
+  const idx = parseInt(req.params.index, 10);
+  const removed = deleteLearnedPattern(idx);
+  if (removed) res.json({ ok: true, removed });
+  else res.status(404).json({ error: 'パターンが見つかりません' });
+});
+
 app.get('/api/auth-check', (req, res) => {
   res.json({ ok: isAuthenticated(req), passwordRequired: !!ACCESS_PASSWORD });
 });
