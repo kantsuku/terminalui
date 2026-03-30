@@ -140,11 +140,19 @@ function parseBlocks(text) {
   return result;
 }
 
+/** 改行で分断されたURLを結合する */
+function joinBrokenUrls(text) {
+  // https://... が改行で途切れたケースを結合
+  // 「http(s)://」の後に改行+インデント空白が続くパターンを検出して結合
+  return text.replace(/(https?:\/\/[^\s<>"')\]]*)\n\s{0,8}([^\s<>"')\]]+)/g, '$1$2');
+}
+
 /** テキスト内のURLをクリック可能なリンクに変換 */
 const URL_SPLIT_RE = /(https?:\/\/[^\s<>"')\]]+)/;
 
 function Linkify({ text }) {
-  const parts = text.split(URL_SPLIT_RE);
+  const joined = joinBrokenUrls(text);
+  const parts = joined.split(URL_SPLIT_RE);
   return parts.map((part, i) =>
     i % 2 === 1
       ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="hv-link">{part}</a>
