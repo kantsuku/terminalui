@@ -125,6 +125,17 @@ function AppMain({ userName }) {
 
   const isMobile = forceMode ? forceMode === 'mobile' : viewportMobile;
 
+  // セッション稼働中にタブを閉じようとしたら警告
+  useEffect(() => {
+    const handler = (e) => {
+      if (sessionHook.sessions.some(s => s.status === 'active')) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [sessionHook.sessions]);
+
   // ホーム画面アイコンをユーザーのキャラ画像に差し替え
   useEffect(() => {
     const iconUrl = `/api/icon?user=${encodeURIComponent(userName)}`;

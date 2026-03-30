@@ -133,11 +133,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const form = new FormData();
     form.append('file', file);
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      const res = await fetch('/api/upload', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
       const data = await res.json();
       if (data.path) setInputText(prev => prev + data.path);
-    } catch {
-      showToast('アップロード失敗', 'error');
+    } catch (e) {
+      showToast(e.name === 'TimeoutError' ? 'アップロードタイムアウト' : 'アップロード失敗', 'error');
     }
     e.target.value = '';
   };
@@ -289,26 +289,30 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const handleRename = useCallback(async (newName) => {
     const id = renaming._id || renaming.name;
     const oldName = renaming.name;
-    await renameSession(id, newName);
-    setRenaming(null);
-    // sessionChars のキーも更新
-    if (settings.sessionChars?.[oldName]) {
-      const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[oldName] };
-      delete updated[oldName];
-      onSaveSettings?.({ sessionChars: updated });
+    try {
+      await renameSession(id, newName);
+      setRenaming(null);
+      // sessionChars のキーも更新
+      if (settings.sessionChars?.[oldName]) {
+        const updated = { ...settings.sessionChars, [newName]: settings.sessionChars[oldName] };
+        delete updated[oldName];
+        onSaveSettings?.({ sessionChars: updated });
+      }
+    } catch (e) {
+      showToast(`リネーム失敗: ${e.message}`, 'error');
     }
   }, [renaming, renameSession, settings.sessionChars, onSaveSettings]);
 
   const touchStart = useRef(null);
   const onTouchStart = (e) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, prevY: e.touches[0].clientY, dir: null };
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, prevY: e.touches[0].clientY, dir: null, time: Date.now() };
   };
   const onTouchMove = (e) => {
     if (!touchStart.current) return;
     const t = touchStart.current;
     const dx = e.touches[0].clientX - t.x;
     const dy = e.touches[0].clientY - t.y;
-    if (t.dir === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    if (t.dir === null && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
       t.dir = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
     }
     if (t.dir === 'v') {
@@ -319,11 +323,13 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   };
   const onTouchEnd = (e) => {
     if (!touchStart.current) return;
-    const { x, y, dir } = touchStart.current;
+    const { x, y, dir, time } = touchStart.current;
     touchStart.current = null;
     const dx = e.changedTouches[0].clientX - x;
     const dy = e.changedTouches[0].clientY - y;
-    if (dir !== 'v' && Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy)) {
+    const elapsed = Date.now() - (time || Date.now());
+    const velocity = elapsed > 0 ? Math.abs(dx) / elapsed : 0;
+    if (dir !== 'v' && Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) && velocity > 0.3) {
       if (dx < 0) setActiveIdx(i => Math.min(i + 1, sessions.length - 1));
       else        setActiveIdx(i => Math.max(i - 1, 0));
     }

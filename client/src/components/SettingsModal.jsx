@@ -46,7 +46,7 @@ function resizeAndUpload(file) {
       canvas.toBlob(blob => {
         const form = new FormData();
         form.append('file', blob, `char_${Date.now()}.jpg`);
-        fetch('/api/upload', { method: 'POST', body: form })
+        fetch('/api/upload', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
           .then(data => resolve(data.path))
           .catch(reject);
@@ -264,7 +264,7 @@ export default function SettingsModal({ settings, onSave, onReset, onClose }) {
                   <div key={key} className="sm-img-item">
                     <div className="sm-img-preview">
                       {selectedChar[key]
-                        ? <img src={selectedChar[key]} alt={label} />
+                        ? <img src={selectedChar[key]} alt={label} loading="lazy" decoding="async" />
                         : <span className="sm-img-placeholder">未設定</span>
                       }
                     </div>

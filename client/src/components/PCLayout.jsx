@@ -365,7 +365,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       }[state]) || [];
                       const speech = lines.length ? lines[Math.floor(Date.now() / intervalMap[state]) % lines.length] : '';
                       return (<>
-                        {src && <img key={src} src={src} alt="" className={`panel-char-avatar panel-char-avatar--${state}`} />}
+                        {src && <img key={src} src={src} alt="" loading="lazy" decoding="async" className={`panel-char-avatar panel-char-avatar--${state}`} />}
                         {speech && <div className="panel-char-speech">{speech}</div>}
                         <div className="panel-char-info">
                           <div className="panel-char-session">{name}</div>
@@ -474,7 +474,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                           const form = new FormData();
                           form.append('file', file);
                           try {
-                            const res = await fetch('/api/upload', { method: 'POST', body: form });
+                            const res = await fetch('/api/upload', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
                             const data = await res.json();
                             if (data.path) setPanelInput(p => ({ ...p, [id]: (p[id] || '') + data.path }));
                           } catch { showToast('アップロード失敗', 'error'); }
