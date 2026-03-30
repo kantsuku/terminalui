@@ -35,10 +35,15 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const [renaming, setRenaming] = useState(null);
   const [inputText, setInputText] = useState('');
   const [connState, setConnState] = useState('disconnected');
-  const autoEnterKey = `termui-auto-enter-v2-${userName}`;
-  const [autoEnter, setAutoEnter] = useState(() => {
-    const stored = localStorage.getItem(`termui-auto-enter-v2-${userName}`);
-    return stored === null ? false : stored === 'true';
+  // autoYesMode: false | 'semi' | 'full' の3段階
+  const autoYesModeKey = `termui-autoyes-mode-${userName}`;
+  const [autoYesMode, setAutoYesMode] = useState(() => {
+    const stored = localStorage.getItem(`termui-autoyes-mode-${userName}`);
+    if (stored === 'semi' || stored === 'full') return stored;
+    // v2からの移行: true → 'full'
+    const legacy = localStorage.getItem(`termui-auto-enter-v2-${userName}`);
+    if (legacy === 'true') return 'full';
+    return false;
   });
   const [history, setHistory] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
@@ -161,15 +166,15 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   }, [activeIdx]);
 
   // Shell セッションは自動OFF固定、Claude セッションはユーザー設定に従う
-  const effectiveAutoEnter = activeSession?.isClaude ? autoEnter : false;
+  const effectiveAutoYes = activeSession?.isClaude ? autoYesMode : false;
 
-  // 接続完了時に autoEnter 状態をサーバー＆クライアントへ再送
+  // 接続完了時に autoYes 状態をサーバー＆クライアントへ再送
   useEffect(() => {
     if (connState === 'connected') {
-      panelRef.current?.setAutoYes(effectiveAutoEnter);
-      panelRef.current?.setClientAutoEnter(effectiveAutoEnter);
+      panelRef.current?.setAutoYes(effectiveAutoYes);
+      panelRef.current?.setClientAutoEnter(!!effectiveAutoYes);
     }
-  }, [connState, effectiveAutoEnter]);
+  }, [connState, effectiveAutoYes]);
 
   const notify = useCallback((title, body) => {
     if (document.visibilityState === 'visible') return;
@@ -538,19 +543,20 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             {activeSession?.isClaude && (
               <>
                 <button
-                  className={`ml-key ml-key--auto ${effectiveAutoEnter ? 'active' : ''}`}
+                  className={`ml-key ml-key--auto ${effectiveAutoYes ? 'active' : ''} ${effectiveAutoYes === 'semi' ? 'semi' : ''}`}
                   onPointerDown={e => {
                     e.preventDefault();
-                    const next = !autoEnter;
-                    setAutoEnter(next);
-                    localStorage.setItem(autoEnterKey, next);
+                    // 3段階トグル: OFF → 半 ON → 自動 ON → OFF
+                    const next = !autoYesMode ? 'semi' : autoYesMode === 'semi' ? 'full' : false;
+                    setAutoYesMode(next);
+                    localStorage.setItem(autoYesModeKey, next || '');
                     panelRef.current?.setAutoYes(next);
-                    panelRef.current?.setClientAutoEnter(next);
+                    panelRef.current?.setClientAutoEnter(!!next);
                   }}
                 >
-                  {effectiveAutoEnter ? '自動 ON' : '自動 OFF'}
+                  {effectiveAutoYes === 'full' ? '自動⏎' : effectiveAutoYes === 'semi' ? '半⏎' : '手動'}
                 </button>
-                <button className={`ml-key ml-key--enter ${effectiveAutoEnter ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
+                <button className={`ml-key ml-key--enter ${effectiveAutoYes === 'full' ? '' : 'primary'}`} onPointerDown={e => { e.preventDefault(); sendKey('\r'); }}>
                   ⏎ Yes
                 </button>
               </>

@@ -87,7 +87,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   useImperativeHandle(ref, () => ({
     sendInput(data) { sendJson({ type: 'input', data }); },
     sendKey(key)   { sendJson({ type: 'input', data: key }); },
-    setAutoYes(enabled) { sendJson({ type: 'autoyes', enabled }); },
+    setAutoYes(mode) { sendJson({ type: 'autoyes', mode }); },
     setClientAutoEnter(enabled) {
       clientAutoEnterRef.current = enabled;
       if (enabled && !clientAutoEnterCooldownRef.current) {

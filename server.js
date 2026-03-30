@@ -602,7 +602,7 @@ wss.on('connection', (ws, req) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
   let session = null; // { proc, write, resize, kill, setAutoYes }
-  let autoYesEnabled = false; // attach前に届いたautoyes状態をバッファ
+  let autoYesMode = false; // false | 'semi' | 'full' — attach前に届いた状態をバッファ
 
   ws.on('message', (raw) => {
     let msg;
@@ -622,7 +622,7 @@ wss.on('connection', (ws, req) => {
             return;
           }
           session = attachSession(tmuxSession, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
-          if (autoYesEnabled) session.setAutoYes(true);
+          if (autoYesMode) session.setAutoYes(autoYesMode);
         });
         break;
       }
@@ -636,9 +636,10 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'autoyes': {
-        autoYesEnabled = !!msg.enabled;
-        if (session) session.setAutoYes(autoYesEnabled);
-        ws.send(JSON.stringify({ type: 'autoyes', enabled: autoYesEnabled }));
+        // mode: false | 'semi' | 'full' （後方互換: enabled=true → 'full'）
+        autoYesMode = msg.mode || (msg.enabled ? 'full' : false);
+        if (session) session.setAutoYes(autoYesMode);
+        ws.send(JSON.stringify({ type: 'autoyes', mode: autoYesMode }));
         break;
       }
     }

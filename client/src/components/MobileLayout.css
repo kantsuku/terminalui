@@ -396,7 +396,17 @@
   color: var(--text-muted);
   border-color: #333;
   background: #111;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
+/* 半自動 ON: 黄色系 */
+.ml-key--auto.active[class*="semi"],
+.ml-key--auto.semi {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: #000;
+  box-shadow: 0 0 6px var(--yellow);
+}
+/* 全自動 ON: アクセント色 */
 .ml-key--auto.active {
   background: var(--accent);
   border-color: var(--accent);
