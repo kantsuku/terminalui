@@ -190,10 +190,12 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
       let isInitializing = true;
       clearTimeout(initTimer);
+      // 初期化中（tmux履歴バッファ受信中）はスクロール抑制
+      // 1.5秒後に初期化完了とみなし、最下部に1回だけジャンプ
       initTimer = setTimeout(() => {
         isInitializing = false;
-        if (scrollLocked) term.scrollToBottom();
-      }, 400);
+        term.scrollToBottom();
+      }, 1500);
 
       ws.onopen = () => {
         backoff = 2000;
