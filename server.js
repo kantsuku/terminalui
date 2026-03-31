@@ -409,29 +409,9 @@ app.post('/api/sessions', async (req, res) => {
       } catch (e) { console.warn('[Session] repo list fetch failed:', e.message); }
     }
     const sessionName = await createSession(tmuxName, command, finalPrompt || undefined);
-    // Claude起動後にリポ一覧表示を自動トリガー（入力待ちプロンプトを検知してから送信）
-    if (type === 'claude') {
-      (async () => {
-        const maxWait = 30000;
-        const interval = 1000;
-        const start = Date.now();
-        while (Date.now() - start < maxWait) {
-          await new Promise(r => setTimeout(r, interval));
-          try {
-            const { stdout } = await execAsync(`${TMUX} capture-pane -t "${sessionName}" -p 2>/dev/null`);
-            const lastLine = stdout.split('\n').filter(l => l.trim()).pop() || '';
-            // Claude Codeの入力プロンプト ">" を検知
-            if (/\? for shortcuts/.test(stdout)) {
-              console.log(`[AUTO] Claude ready, waiting 1s then sending to ${sessionName}`);
-              await new Promise(r => setTimeout(r, 1000));
-              await execFileAsync(TMUX, ['send-keys', '-t', sessionName, 'リポジトリ一覧を出して', 'Enter']);
-              console.log(`[AUTO] sent OK`);
-              break;
-            }
-          } catch (e) { console.warn('[AUTO] capture-pane error:', e.message); }
-        }
-      })();
-    }
+    // リポ一覧はシステムプロンプトに含まれているので、
+    // ユーザーの最初の発言でClaude側が判断して表示する。
+    // 自動送信は廃止（セッション途中で文脈が途切れる問題の防止）。
     const internalName = stripPrefix(user, sessionName);
     // displayNames マッピングを保存
     displayNames[internalName] = displayName;
