@@ -157,11 +157,11 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
+    term.open(containerRef.current);
     const unicode11 = new Unicode11Addon();
     term.loadAddon(unicode11);
     term.unicode.activeVersion = '11';
-    term.open(containerRef.current);
-    term.loadAddon(new CanvasAddon());
+    try { term.loadAddon(new CanvasAddon()); } catch {}
     fitAddon.fit();
     termRef.current = term;
     fitRef.current = fitAddon;
