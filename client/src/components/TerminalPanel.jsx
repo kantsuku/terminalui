@@ -91,19 +91,8 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     sendKey(key)   { sendJson({ type: 'input', data: key }); },
     setAutoYes(mode) { sendJson({ type: 'autoyes', mode }); },
     setClientAutoEnter(enabled) {
-      clientAutoEnterRef.current = enabled;
-      if (enabled && !clientAutoEnterCooldownRef.current) {
-        clearTimeout(clientAutoEnterTimerRef.current);
-        clientAutoEnterTimerRef.current = setTimeout(() => {
-          if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
-            clientAutoEnterCooldownRef.current = true;
-            setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 5000);
-          }
-        }, 2000);
-      } else if (!enabled) {
-        clearTimeout(clientAutoEnterTimerRef.current);
-      }
+      // クライアント側AutoEnterは無効化（サーバー側AutoYESに一本化）
+      clientAutoEnterRef.current = false;
     },
     focus() { termRef.current?.focus(); },
     scrollUp() {
@@ -230,16 +219,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
             term.write(msg.data, (scrollLocked && !isInitializing) ? () => term.scrollToBottom() : undefined);
             onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
-            if (clientAutoEnterRef.current && !clientAutoEnterCooldownRef.current) {
-              clearTimeout(clientAutoEnterTimerRef.current);
-              clientAutoEnterTimerRef.current = setTimeout(() => {
-                if (clientAutoEnterRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send(JSON.stringify({ type: 'input', data: '\r' }));
-                  clientAutoEnterCooldownRef.current = true;
-                  setTimeout(() => { clientAutoEnterCooldownRef.current = false; }, 5000);
-                }
-              }, 2000);
-            }
+            // クライアント側AutoEnterは無効化（サーバー側AutoYESに一本化）
             break;
           }
           case 'exit':
