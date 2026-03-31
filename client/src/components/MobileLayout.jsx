@@ -31,6 +31,15 @@ const KEYS = [
 export default function MobileLayout({ sessions, createSession, killSession, renameSession, fetchSessions, onSwitchMode, settings = {}, onOpenSettings, onSaveSettings, userName = 'default' }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [showDrawer, setShowDrawer] = useState(false);
+  // PC同様、選択したセッションだけ表示
+  const mobileActiveKey = `termui-mobile-active-${userName}`;
+  const [mobileActiveSessions, setMobileActiveSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`termui-mobile-active-${userName}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null; // null = 未設定（全表示、初回は自動選択）
+  });
   const [showNewModal, setShowNewModal] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [inputText, setInputText] = useState('');
@@ -107,7 +116,29 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
   const textareaRef = useRef(null);
   const historyScrollRef = useRef(null);
 
-  const activeSession = sessions[activeIdx] || null;
+  // mobileActiveSessions でフィルタ（null=全表示、配列=選択のみ）
+  const visibleSessions = mobileActiveSessions
+    ? sessions.filter(s => mobileActiveSessions.includes(s._id || s.name))
+    : sessions;
+
+  // mobileActiveSessionsの永続化 + 存在しないセッションの除去
+  useEffect(() => {
+    if (mobileActiveSessions) {
+      const ids = new Set(sessions.map(s => s._id || s.name));
+      const cleaned = mobileActiveSessions.filter(n => ids.has(n));
+      if (cleaned.length !== mobileActiveSessions.length) setMobileActiveSessions(cleaned);
+      localStorage.setItem(mobileActiveKey, JSON.stringify(cleaned));
+    }
+  }, [mobileActiveSessions, sessions]);
+
+  // activeIdx が visibleSessions の範囲外にならないよう補正
+  useEffect(() => {
+    if (activeIdx >= visibleSessions.length && visibleSessions.length > 0) {
+      setActiveIdx(visibleSessions.length - 1);
+    }
+  }, [visibleSessions.length, activeIdx]);
+
+  const activeSession = visibleSessions[activeIdx] || null;
   const activeSessionRef = useRef(null);
   activeSessionRef.current = activeSession;
 
@@ -337,7 +368,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const elapsed = Date.now() - (time || Date.now());
     const velocity = elapsed > 0 ? Math.abs(dx) / elapsed : 0;
     if (dir !== 'v' && Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) && velocity > 0.3) {
-      if (dx < 0) setActiveIdx(i => Math.min(i + 1, sessions.length - 1));
+      if (dx < 0) setActiveIdx(i => Math.min(i + 1, visibleSessions.length - 1));
       else        setActiveIdx(i => Math.max(i - 1, 0));
     }
   };
@@ -378,7 +409,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
       <header className="ml-header">
         <button className="ml-hbtn" onPointerDown={() => setShowDrawer(true)}>☰</button>
         <div className="ml-tabs">
-          {sessions.map((s, i) => {
+          {visibleSessions.map((s, i) => {
             const secAgo = s.activity ? (Date.now() - new Date(s.activity).getTime()) / 1000 : 9999;
             const needsInput = /[\?？]|y\/n|\[y|enter|confirm|続ける|許可|信頼/i.test(s.lastLine || '');
             const sChar = getCharForSession(settings, s.name);
@@ -458,11 +489,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               再接続
             </button>
           )}
-          {sessions.length > 1 && (
+          {visibleSessions.length > 1 && (
             <span className="ml-statusbar-nav">
               <button onPointerDown={() => setActiveIdx(i => Math.max(i - 1, 0))} disabled={activeIdx === 0}>‹</button>
-              <span>{activeIdx + 1} / {sessions.length}</span>
-              <button onPointerDown={() => setActiveIdx(i => Math.min(i + 1, sessions.length - 1))} disabled={activeIdx >= sessions.length - 1}>›</button>
+              <span>{activeIdx + 1} / {visibleSessions.length}</span>
+              <button onPointerDown={() => setActiveIdx(i => Math.min(i + 1, visibleSessions.length - 1))} disabled={activeIdx >= visibleSessions.length - 1}>›</button>
             </span>
           )}
         </span>
@@ -603,20 +634,43 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
               <button className="icon" onPointerDown={() => setShowDrawer(false)}>✕</button>
             </div>
             <div className="ml-drawer-list">
-              {sessions.map((s, i) => (
+              {sessions.map((s) => {
+                const sid = s._id || s.name;
+                const isVisible = !mobileActiveSessions || mobileActiveSessions.includes(sid);
+                const visIdx = visibleSessions.findIndex(v => (v._id || v.name) === sid);
+                return (
                 <div
                   key={s.name}
-                  className={`ml-drawer-item ${i === activeIdx ? 'active' : ''}`}
+                  className={`ml-drawer-item ${visIdx === activeIdx && isVisible ? 'active' : ''} ${!isVisible ? 'hidden-session' : ''}`}
                   style={{ touchAction: 'manipulation' }}
-                  onPointerDown={() => { setActiveIdx(i); setShowDrawer(false); }}
+                  onPointerDown={() => {
+                    if (!isVisible) return;
+                    setActiveIdx(visIdx >= 0 ? visIdx : 0);
+                    setShowDrawer(false);
+                  }}
                 >
+                  {/* 表示/非表示トグル */}
+                  <button
+                    className={`ml-drawer-toggle ${isVisible ? 'on' : ''}`}
+                    onPointerDown={e => {
+                      e.stopPropagation(); e.preventDefault();
+                      const current = mobileActiveSessions || sessions.map(ss => ss._id || ss.name);
+                      if (isVisible) {
+                        // 非表示にする（最低1つは残す）
+                        const next = current.filter(n => n !== sid);
+                        if (next.length > 0) setMobileActiveSessions(next);
+                      } else {
+                        // 表示にする
+                        setMobileActiveSessions([...current, sid]);
+                      }
+                    }}
+                  >{isVisible ? '●' : '○'}</button>
                   <span className={`dot ${statusClass(s)}`} />
                   <div className="ml-drawer-info">
                     <div className="ml-drawer-name">{s.name}</div>
                     {s.lastLine && <div className="ml-drawer-last">{s.lastLine}</div>}
                   </div>
                   <div className="ml-drawer-btns" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                    {/* Shell = 天馬博士固定、Claude = キャラ選択可 */}
                     {(settings.sessionChars?.[s.name] === 'tenma' || (!settings.sessionChars?.[s.name] && !s.isClaude)) ? (
                       <span style={{ fontSize: 11, color: '#a0713a', padding: '0 4px' }}>天馬博士</span>
                     ) : (settings.characters?.length > 1) && (
@@ -637,7 +691,8 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                     <button className="icon danger" style={{ touchAction: 'manipulation' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); handleKill(s._id || s.name); }}>✕</button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="ml-drawer-footer">
               <button className="primary" style={{ width: '100%' }} onPointerDown={() => { setShowDrawer(false); setShowNewModal(true); }}>

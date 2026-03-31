@@ -595,7 +595,18 @@
   margin-bottom: 2px;
 }
 .ml-drawer-item.active { background: var(--bg3); border-color: var(--accent); }
+.ml-drawer-item.hidden-session { opacity: 0.4; }
 .ml-drawer-item .dot { width: 10px; height: 10px; flex-shrink: 0; }
+
+.ml-drawer-toggle {
+  width: 24px; height: 24px;
+  border: none; background: transparent;
+  color: var(--accent); font-size: 14px;
+  padding: 0; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s;
+}
+.ml-drawer-toggle:not(.on) { color: var(--text-muted); }
 
 .ml-drawer-info { flex: 1; min-width: 0; }
 .ml-drawer-name { font-size: 15px; font-weight: 600; }
