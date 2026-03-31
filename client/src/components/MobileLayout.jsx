@@ -649,23 +649,20 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
                     setShowDrawer(false);
                   }}
                 >
-                  {/* 表示/非表示トグル */}
+                  {/* 表示/非表示トグル（ステータスdot統合） */}
                   <button
-                    className={`ml-drawer-toggle ${isVisible ? 'on' : ''}`}
+                    className={`ml-drawer-toggle ${isVisible ? 'on' : ''} ${isVisible ? statusClass(s) : ''}`}
                     onPointerDown={e => {
                       e.stopPropagation(); e.preventDefault();
                       const current = mobileActiveSessions || sessions.map(ss => ss._id || ss.name);
                       if (isVisible) {
-                        // 非表示にする（最低1つは残す）
                         const next = current.filter(n => n !== sid);
                         if (next.length > 0) setMobileActiveSessions(next);
                       } else {
-                        // 表示にする
                         setMobileActiveSessions([...current, sid]);
                       }
                     }}
-                  >{isVisible ? '●' : '○'}</button>
-                  <span className={`dot ${statusClass(s)}`} />
+                  />
                   <div className="ml-drawer-info">
                     <div className="ml-drawer-name">{s.name}</div>
                     {s.lastLine && <div className="ml-drawer-last">{s.lastLine}</div>}

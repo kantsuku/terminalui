@@ -598,15 +598,19 @@
 .ml-drawer-item.hidden-session { opacity: 0.4; }
 .ml-drawer-item .dot { width: 10px; height: 10px; flex-shrink: 0; }
 
+/* トグル兼ステータスdot: ONで色付き丸、OFFで枠だけ */
 .ml-drawer-toggle {
-  width: 24px; height: 24px;
-  border: none; background: transparent;
-  color: var(--accent); font-size: 14px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  background: transparent;
   padding: 0; cursor: pointer; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  transition: color 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.ml-drawer-toggle:not(.on) { color: var(--text-muted); }
+.ml-drawer-toggle.on { background: var(--text-muted); border-color: var(--text-muted); }
+.ml-drawer-toggle.on.active { background: var(--green); border-color: var(--green); box-shadow: 0 0 4px var(--green); }
+.ml-drawer-toggle.on.idle   { background: var(--yellow); border-color: var(--yellow); }
+.ml-drawer-toggle:not(.on) { background: transparent; border-style: dashed; }
 
 .ml-drawer-info { flex: 1; min-width: 0; }
 .ml-drawer-name { font-size: 15px; font-weight: 600; }
