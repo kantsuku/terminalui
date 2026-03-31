@@ -467,6 +467,11 @@
   border: 1px solid var(--border);
   color: var(--text-muted);
 }
+.panel-ctrl-big.semi {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: #000;
+}
 .panel-ctrl-big.active {
   background: var(--panel-accent, var(--accent));
   border-color: var(--panel-accent, var(--accent));

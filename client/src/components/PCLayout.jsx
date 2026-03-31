@@ -37,7 +37,8 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
   const [showNewModal, setShowNewModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [renaming, setRenaming] = useState(null);
-  const [autoYes, setAutoYes] = useState({});
+  // autoYesMode: セッションごとに false | 'semi' | 'full'
+  const [autoYesMode, setAutoYesMode] = useState({});
   const [skillsPopupFor, setSkillsPopupFor] = useState(null);
   const [panelInput, setPanelInput] = useState({});
   const [panelHistory, setPanelHistory] = useState({});
@@ -89,7 +90,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
         // 非表示にするとき: autoYes を解除
         panelRefs.current[name]?.setAutoYes(false);
         panelRefs.current[name]?.setClientAutoEnter(false);
-        setAutoYes(p => { const n = { ...p }; delete n[name]; return n; });
+        setAutoYesMode(p => { const n = { ...p }; delete n[name]; return n; });
         return prev.filter(n => n !== name);
       }
       return prev.length < 3 ? [...prev, name] : prev;
@@ -324,8 +325,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
               const sObj = sessions.find(s => (s._id || s.name) === id);
               const name = sObj?.name || id;
               const isShell = sObj?.type === 'shell' || !sObj?.isClaude;
-              const defaultAy = !isShell;
-              const ay = autoYes[id] ?? defaultAy;
+              const ay = isShell ? false : (autoYesMode[id] ?? 'full');
               return (
                 <div
                   key={id}
@@ -389,9 +389,9 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                       onInput={() => handleInput(id)}
                       onConnStateChange={state => {
                         if (state === 'connected') {
-                          const enabled = isShell ? false : (autoYes[id] ?? true);
-                          panelRefs.current[id]?.setAutoYes(enabled);
-                          panelRefs.current[id]?.setClientAutoEnter(enabled);
+                          const mode = isShell ? false : (autoYesMode[id] ?? 'full');
+                          panelRefs.current[id]?.setAutoYes(mode);
+                          panelRefs.current[id]?.setClientAutoEnter(!!mode);
                         }
                       }}
                     />
@@ -428,18 +428,18 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                     {!isShell && (
                       <>
                         <button
-                          className={`panel-ctrl-big ${ay ? 'active' : ''}`}
+                          className={`panel-ctrl-big ${ay === 'full' ? 'active' : ay === 'semi' ? 'semi' : ''}`}
                           onClick={() => {
-                            const next = !ay;
-                            setAutoYes(p => ({ ...p, [id]: next }));
+                            const next = !ay ? 'semi' : ay === 'semi' ? 'full' : false;
+                            setAutoYesMode(p => ({ ...p, [id]: next }));
                             panelRefs.current[id]?.setAutoYes(next);
-                            panelRefs.current[id]?.setClientAutoEnter(next);
+                            panelRefs.current[id]?.setClientAutoEnter(!!next);
                           }}
                         >
-                          自動
+                          {ay === 'full' ? '自動⏎' : ay === 'semi' ? '半⏎' : '手動'}
                         </button>
                         <button
-                          className={`panel-ctrl-big panel-ctrl-yes primary${ay ? ' dimmed' : ''}`}
+                          className={`panel-ctrl-big panel-ctrl-yes primary${ay === 'full' ? ' dimmed' : ''}`}
                           onClick={() => panelRefs.current[id]?.sendKey('\r')}
                         >
                           ⏎ Yes
