@@ -283,7 +283,6 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     inputHistoryIdxRef.current = -1;
     setInputText('');
     if (textareaRef.current) { textareaRef.current.style.height = 'auto'; }
-    textareaRef.current?.blur();
   }, [inputText]);
 
   const sendKey = useCallback((data) => {

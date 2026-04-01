@@ -89,15 +89,94 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
-// ── キープアライブ（30秒ごとに ping、無応答なら切断）──────────────────────────
+// ── キープアライブ（45秒ごとに ping、2回連続無応答で切断）─────────────────────
 const keepAlive = setInterval(() => {
   wss.clients.forEach((ws) => {
-    if (ws.isAlive === false) return ws.terminate();
+    if (ws.missedPongs >= 2) return ws.terminate();
+    if (ws.isAlive === false) {
+      ws.missedPongs = (ws.missedPongs || 0) + 1;
+    } else {
+      ws.missedPongs = 0;
+    }
     ws.isAlive = false;
     ws.ping();
   });
-}, 30000);
+}, 45000);
 wss.on('close', () => clearInterval(keepAlive));
+
+// ── pty セッションプール（WS切断後も一定時間保持して再接続時に再利用）──────────
+const PTY_GRACE_MS = 60000; // 60秒間ptyを保持
+const ptyPool = new Map(); // key: tmuxSessionName → { session, graceTimer, wsRef }
+
+function getOrCreatePty(tmuxSession, ws, cols, rows, ntfyTopic) {
+  const existing = ptyPool.get(tmuxSession);
+  if (existing) {
+    // ptyプロセスが死んでいたら削除して新規作成へ
+    if (existing.session.isAlive && !existing.session.isAlive()) {
+      console.log(`[PtyPool] dead pty detected, removing: ${tmuxSession}`);
+      clearTimeout(existing.graceTimer);
+      ptyPool.delete(tmuxSession);
+    } else {
+      // grace timer をキャンセルして再利用
+      clearTimeout(existing.graceTimer);
+      existing.graceTimer = null;
+      existing.wsRef = ws;
+      // 既存ptyの出力先を新しいWSに差し替え
+      existing.session.reattachWs(ws);
+      existing.session.resize(cols, rows);
+      console.log(`[PtyPool] reused: ${tmuxSession}`);
+      return existing.session;
+    }
+  }
+  // 新規作成
+  const session = attachSession(tmuxSession, ws, cols, rows, ntfyTopic);
+  ptyPool.set(tmuxSession, { session, graceTimer: null, wsRef: ws });
+  // ptyプロセス終了時にプールから自動削除
+  session.onExit(() => {
+    const entry = ptyPool.get(tmuxSession);
+    if (entry && entry.session === session) {
+      clearTimeout(entry.graceTimer);
+      ptyPool.delete(tmuxSession);
+      console.log(`[PtyPool] auto-removed (process exited): ${tmuxSession}`);
+    }
+  });
+  console.log(`[PtyPool] created: ${tmuxSession}`);
+  return session;
+}
+
+function releasePty(tmuxSession, releasingWs) {
+  const entry = ptyPool.get(tmuxSession);
+  if (!entry) return;
+  // 別のWSが既にこのptyを使用中なら、リリースをスキップ（レース条件防止）
+  if (releasingWs && entry.wsRef !== releasingWs) {
+    console.log(`[PtyPool] skip release (ws mismatch, pty already reattached): ${tmuxSession}`);
+    return;
+  }
+  // 既存のgrace timerがあればキャンセル
+  clearTimeout(entry.graceTimer);
+  // grace period: 60秒後にptyを本当に殺す（ただし再利用されていなければ）
+  const releasedWs = releasingWs;
+  entry.graceTimer = setTimeout(() => {
+    // 再チェック: grace期間中に別のWSが再利用していたら殺さない
+    if (releasedWs && entry.wsRef !== releasedWs) {
+      console.log(`[PtyPool] grace expired but pty reused by new ws, skip: ${tmuxSession}`);
+      return;
+    }
+    console.log(`[PtyPool] grace expired, killing: ${tmuxSession}`);
+    entry.session.kill();
+    ptyPool.delete(tmuxSession);
+  }, PTY_GRACE_MS);
+  console.log(`[PtyPool] released (grace ${PTY_GRACE_MS / 1000}s): ${tmuxSession}`);
+}
+
+function killPtyImmediate(tmuxSession) {
+  const entry = ptyPool.get(tmuxSession);
+  if (!entry) return;
+  clearTimeout(entry.graceTimer);
+  entry.session.kill();
+  ptyPool.delete(tmuxSession);
+  console.log(`[PtyPool] killed immediately: ${tmuxSession}`);
+}
 
 app.use(express.json({ limit: '50mb' }));
 app.use(authMiddleware);
@@ -444,7 +523,10 @@ app.delete('/api/sessions/:id', async (req, res) => {
   const user = req.query.user || 'default';
   try {
     const internalId = req.params.id;
-    await killSession(prefixed(user, internalId));
+    const tmuxName = prefixed(user, internalId);
+    // ptyプールから即座に削除（tmuxセッション削除前にptyを片付ける）
+    killPtyImmediate(tmuxName);
+    await killSession(tmuxName);
     // displayNames からも削除
     const displayNames = loadDisplayNames(user);
     delete displayNames[internalId];
@@ -594,9 +676,12 @@ wss.on('connection', (ws, req) => {
   }
   console.log('[WS] connected from', req.socket.remoteAddress);
   ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
-  let session = null; // { proc, write, resize, kill, setAutoYes }
+  ws.missedPongs = 0;
+  ws.on('pong', () => { ws.isAlive = true; ws.missedPongs = 0; });
+  let session = null; // { proc, write, resize, kill, setAutoYes, reattachWs }
+  let currentTmuxSession = null; // ptyPool のキー
   let autoYesMode = false; // false | 'semi' | 'full' — attach前に届いた状態をバッファ
+  let attachSeq = 0; // 連続attachリクエストの古い結果を無視するためのシーケンス番号
 
   ws.on('message', (raw) => {
     let msg;
@@ -608,20 +693,30 @@ wss.on('connection', (ws, req) => {
 
     switch (msg.type) {
       case 'attach': {
-        if (session) session.kill();
+        // 前のセッションがあればプールに返却（killしない）
+        if (currentTmuxSession) {
+          releasePty(currentTmuxSession, ws);
+        }
         const tmuxSession = prefixed(msg.user || 'default', msg.session);
+        // attachリクエストIDで古いasync完了を無視する（連続attach対策）
+        const attachId = ++attachSeq;
         sessionExists(tmuxSession).then((exists) => {
+          // 古いattachリクエストの結果が遅れて来た場合は無視
+          if (attachId !== attachSeq) {
+            console.log(`[WS] stale attach ignored: ${tmuxSession} (seq ${attachId} vs ${attachSeq})`);
+            return;
+          }
           if (!exists) {
             ws.send(JSON.stringify({ type: 'error', message: `Session "${msg.session}" not found` }));
             return;
           }
-          session = attachSession(tmuxSession, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
+          session = getOrCreatePty(tmuxSession, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
+          currentTmuxSession = tmuxSession;
           if (autoYesMode) session.setAutoYes(autoYesMode);
         });
         break;
       }
       case 'input': {
-        console.log('[WS] input:', JSON.stringify(msg.data));
         if (session) session.write(msg.data);
         break;
       }
@@ -640,13 +735,21 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    if (session) session.kill();
+    // pty を殺さずプールに返却 → grace period 後に自動回収
+    // WS参照を渡して、既に別WSが再利用済みならリリースをスキップ
+    if (currentTmuxSession) {
+      releasePty(currentTmuxSession, ws);
+    }
     session = null;
+    currentTmuxSession = null;
   });
 
   ws.on('error', () => {
-    if (session) session.kill();
+    if (currentTmuxSession) {
+      releasePty(currentTmuxSession, ws);
+    }
     session = null;
+    currentTmuxSession = null;
   });
 });
 

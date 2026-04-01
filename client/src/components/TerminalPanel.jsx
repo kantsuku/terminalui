@@ -72,6 +72,13 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   onPromptBlockedRef.current = onPromptBlocked;
   const [connState, setConnState] = useState('disconnected');
 
+  // ── 非アクティブ時のバッファリング（フリーズ防止）──────────────
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const pendingBufferRef = useRef([]);
+  const pendingBytesRef = useRef(0);
+  const MAX_BUFFER_BYTES = 200 * 1024; // 200KB上限
+
 
   const updateState = useCallback((s) => {
     setConnState(s);
@@ -161,7 +168,10 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     const unicode11 = new Unicode11Addon();
     term.loadAddon(unicode11);
     term.unicode.activeVersion = '11';
-    try { term.loadAddon(new CanvasAddon()); } catch {}
+    // モバイルではCanvasAddon無効（display:none⇔visible切替時のフリーズ防止）
+    if (!mobile) {
+      try { term.loadAddon(new CanvasAddon()); } catch {}
+    }
     fitAddon.fit();
     termRef.current = term;
     fitRef.current = fitAddon;
@@ -178,7 +188,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     let mounted = true;
     let reconnectTimeout = null;
     let initTimer = null;
-    let backoff = 2000;
+    let backoff = 1000;
 
     const connect = () => {
       if (!mounted) return;
@@ -198,7 +208,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       }, 1500);
 
       ws.onopen = () => {
-        backoff = 2000;
+        backoff = 1000;
         updateState('connected');
         ws.send(JSON.stringify({ type: 'attach', session: sessionName, user: userName, cols: term.cols, rows: term.rows, ntfyTopic }));
       };
@@ -210,7 +220,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         if (!mounted) return;
         updateState('reconnecting');
         reconnectTimeout = setTimeout(connect, backoff);
-        backoff = Math.min(backoff * 2, 30000);
+        backoff = Math.min(backoff * 1.5, 5000);
       };
 
       ws.onmessage = (e) => {
@@ -218,10 +228,20 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         try { msg = JSON.parse(e.data); } catch { return; }
         switch (msg.type) {
           case 'output': {
+            // 非アクティブ時はバッファに貯める（xterm描画をスキップしてフリーズ防止）
+            if (!activeRef.current) {
+              pendingBufferRef.current.push(msg.data);
+              pendingBytesRef.current += msg.data.length;
+              // バッファ上限超過時は古いデータを捨てる
+              while (pendingBytesRef.current > MAX_BUFFER_BYTES && pendingBufferRef.current.length > 1) {
+                const dropped = pendingBufferRef.current.shift();
+                pendingBytesRef.current -= dropped.length;
+              }
+              break;
+            }
             term.write(msg.data, (scrollLocked && !isInitializing) ? () => term.scrollToBottom() : undefined);
             onActivityRef.current?.();
             onOutputRef.current?.(msg.data);
-            // クライアント側AutoEnterは無効化（サーバー側AutoYESに一本化）
             break;
           }
           case 'exit':
@@ -252,9 +272,13 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     connect();
 
     let resizeTimer;
-    const ro = new ResizeObserver(() => {
+    const ro = new ResizeObserver((entries) => {
+      // display:none時（0x0）はリサイズをスキップ（フリーズ防止）
+      const entry = entries[0];
+      if (entry && entry.contentRect.width === 0 && entry.contentRect.height === 0) return;
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
+        if (!activeRef.current) return; // 非アクティブ中はスキップ
         try { fitAddon.fit(); } catch {}
         const ws = wsRef.current;
         if (ws?.readyState === WebSocket.OPEN) {
@@ -291,6 +315,32 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionName, userName, mobile, accentColor]);
+
+  // ── アクティブ復帰時: バッファフラッシュ＆リサイズ ──────────────
+  useEffect(() => {
+    if (!active) return;
+    const term = termRef.current;
+    const fitAddon = fitRef.current;
+    if (!term) return;
+    // バッファされた出力をフラッシュ
+    if (pendingBufferRef.current.length > 0) {
+      const chunks = pendingBufferRef.current.splice(0);
+      pendingBytesRef.current = 0;
+      // 大量データを一括で書くとフリーズするので requestAnimationFrame で分割
+      requestAnimationFrame(() => {
+        const merged = chunks.join('');
+        term.write(merged, () => term.scrollToBottom());
+      });
+    }
+    // 1フレーム待ってからリサイズ（display:none解除後にレイアウト確定させる）
+    requestAnimationFrame(() => {
+      try { fitAddon?.fit(); } catch {}
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      }
+    });
+  }, [active]);
 
   const stateColor = {
     connecting:   '#d29922',
