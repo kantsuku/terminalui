@@ -142,7 +142,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   }), [sendJson]);
 
   useEffect(() => {
-    if (!sessionName || !containerRef.current || !active) return;
+    if (!sessionName || !containerRef.current) return;
 
     const term = new Terminal({
       theme: makeTheme(accentColor),
@@ -290,7 +290,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       termRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionName, userName, mobile, active, accentColor]);
+  }, [sessionName, userName, mobile, accentColor]);
 
   const stateColor = {
     connecting:   '#d29922',
@@ -301,7 +301,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   }[connState] || '#8b949e';
 
   return (
-    <div className="terminal-panel-wrap">
+    <div className="terminal-panel-wrap" style={active ? undefined : { display: 'none' }}>
       {!mobile && (
         <div style={{ position: 'absolute', top: 4, right: 8, fontSize: 11, color: stateColor, zIndex: 10, pointerEvents: 'none' }}>
           ● {connState}

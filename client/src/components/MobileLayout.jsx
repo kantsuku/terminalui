@@ -499,24 +499,25 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
         </span>
       </div>
 
-      {/* ターミナル */}
+      {/* ターミナル — 全visibleSessionsをレンダリング、activeだけ表示 */}
       <div className="ml-terminal" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} ref={terminalDivRef}>
-        {activeSession ? (
+        {visibleSessions.length > 0 ? visibleSessions.map((s, i) => (
           <TerminalPanel
-            key={activeSession._id || activeSession.name}
-            ref={panelRef}
-            sessionName={activeSession._id || activeSession.name}
+            key={s._id || s.name}
+            ref={i === activeIdx ? panelRef : undefined}
+            sessionName={s._id || s.name}
             userName={userName}
             mobile={true}
+            active={i === activeIdx}
             ntfyTopic={settings.ntfyTopic || ''}
-            accentColor={accent}
-            onConnStateChange={setConnState}
-            onActivity={handleActivity}
-            onOutput={handleOutput}
-            onInput={handleInput}
-            onPromptBlocked={() => { setPromptWaiting(true); showToast('⚠️ 要判断！手動で応答してください', 'error', 5000); setTimeout(() => setPromptWaiting(false), 10000); }}
+            accentColor={getCharForSession(settings, s.name).accent || '#00d4aa'}
+            onConnStateChange={i === activeIdx ? setConnState : undefined}
+            onActivity={i === activeIdx ? handleActivity : undefined}
+            onOutput={i === activeIdx ? handleOutput : undefined}
+            onInput={i === activeIdx ? handleInput : undefined}
+            onPromptBlocked={i === activeIdx ? () => { setPromptWaiting(true); showToast('⚠️ 要判断！手動で応答してください', 'error', 5000); setTimeout(() => setPromptWaiting(false), 10000); } : undefined}
           />
-        ) : (
+        )) : (
           <div className="ml-empty">
             <div>セッションがありません</div>
             <button className="primary" onPointerDown={() => setShowNewModal(true)}>＋ 新規セッション</button>
