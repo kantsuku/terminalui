@@ -194,6 +194,11 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
     const connect = () => {
       if (!mounted || !activeRef.current) return; // 非アクティブ時は接続しない
+      // 既存WSが残っていたら先に閉じる（重複接続防止）
+      if (wsRef.current) {
+        try { wsRef.current.onclose = null; wsRef.current.close(); } catch {}
+        wsRef.current = null;
+      }
       connectRef.current = connect;
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${proto}//${location.host}/ws`);
@@ -217,9 +222,14 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
       ws.onerror = () => updateState('error');
 
-      ws.onclose = () => {
+      ws.onclose = (e) => {
         wsRef.current = null;
         if (!mounted) return;
+        // サーバーが「別の接続に置き換えた」場合は再接続しない（ループ防止）
+        if (e.code === 4000) {
+          updateState('disconnected');
+          return;
+        }
         // 非アクティブ時は再接続しない（active復帰時に再接続する）
         if (!activeRef.current) {
           updateState('disconnected');
@@ -227,7 +237,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         }
         updateState('reconnecting');
         reconnectTimeout = setTimeout(connect, backoff);
-        backoff = Math.min(backoff * 1.5, 5000);
+        backoff = Math.min(backoff * 1.5, 15000);
       };
 
       ws.onmessage = (e) => {

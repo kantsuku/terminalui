@@ -89,19 +89,14 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
-// ── キープアライブ（45秒ごとに ping、2回連続無応答で切断）─────────────────────
+// ── キープアライブ（10秒ごとに ping、1回無応答で切断）─────────────────────────
 const keepAlive = setInterval(() => {
   wss.clients.forEach((ws) => {
-    if (ws.missedPongs >= 2) return ws.terminate();
-    if (ws.isAlive === false) {
-      ws.missedPongs = (ws.missedPongs || 0) + 1;
-    } else {
-      ws.missedPongs = 0;
-    }
+    if (ws.isAlive === false) return ws.terminate();
     ws.isAlive = false;
     ws.ping();
   });
-}, 45000);
+}, 10000);
 wss.on('close', () => clearInterval(keepAlive));
 
 // ── pty セッションプール（WS切断後も一定時間保持して再接続時に再利用）──────────
@@ -664,23 +659,41 @@ app.get('/api/sessions/:name/history', async (req, res) => {
 
 // SPA fallback (must be after API routes)
 app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
+
+// ── 同一IPからの接続数制限（超過時は最古の接続をterminate）───────────────────────
+const MAX_WS_PER_IP = 30;
 
 wss.on('connection', (ws, req) => {
   if (!isAuthenticated(req)) {
     ws.close(1008, 'unauthorized');
     return;
   }
-  console.log('[WS] connected from', req.socket.remoteAddress);
+  const clientIp = req.socket.remoteAddress;
+  ws._clientIp = clientIp;
+  ws._connectedAt = Date.now();
+  // 同一IPの接続数が上限を超えていたら古い順にterminate（closeイベントを発火させない即切断）
+  const sameIp = [];
+  wss.clients.forEach((c) => { if (c._clientIp === clientIp && c !== ws && c.readyState <= 1) sameIp.push(c); });
+  if (sameIp.length >= MAX_WS_PER_IP) {
+    sameIp.sort((a, b) => (a._connectedAt || 0) - (b._connectedAt || 0));
+    const toKill = sameIp.length - MAX_WS_PER_IP + 1;
+    for (let i = 0; i < toKill; i++) {
+      sameIp[i].terminate(); // terminate = 即切断、oncloseを発火しない
+    }
+    console.log(`[WS] trimmed ${toKill} old connections for ${clientIp}`);
+  }
+  console.log('[WS] connected from', clientIp);
   ws.isAlive = true;
   ws.missedPongs = 0;
   ws.on('pong', () => { ws.isAlive = true; ws.missedPongs = 0; });
   let session = null; // { proc, write, resize, kill, setAutoYes, reattachWs }
   let currentTmuxSession = null; // ptyPool のキー
-  let autoYesMode = 'semi'; // デフォルト半自動（safe パターンのみ自動応答）— クライアントから変更可
+  let autoYesMode = 'full'; // デフォルト全自動 — クライアントから変更可
   let attachSeq = 0; // 連続attachリクエストの古い結果を無視するためのシーケンス番号
 
   ws.on('message', (raw) => {
@@ -693,7 +706,7 @@ wss.on('connection', (ws, req) => {
 
     switch (msg.type) {
       case 'attach': {
-        // 前のセッションがあればプールに返却（killしない）
+        // 前のセッションがあればプールに返却
         if (currentTmuxSession) {
           releasePty(currentTmuxSession, ws);
         }
@@ -736,8 +749,6 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    // pty を殺さずプールに返却 → grace period 後に自動回収
-    // WS参照を渡して、既に別WSが再利用済みならリリースをスキップ
     if (currentTmuxSession) {
       releasePty(currentTmuxSession, ws);
     }
