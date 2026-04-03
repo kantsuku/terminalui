@@ -51,7 +51,7 @@ function makeTheme(accent) {
 }
 
 const TerminalPanel = forwardRef(function TerminalPanel(
-  { sessionName, userName = 'default', mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput, onPromptBlocked },
+  { sessionName, userName = 'default', mobile = false, active = true, ntfyTopic = '', accentColor = '#00d4aa', onConnStateChange, onActivity, onOutput, onInput, onPromptBlocked, onAutoYesSync },
   ref
 ) {
   const containerRef = useRef(null);
@@ -66,10 +66,12 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   const onInputRef    = useRef(onInput);
   const onActivityRef = useRef(onActivity);
   const onPromptBlockedRef = useRef(onPromptBlocked);
+  const onAutoYesSyncRef = useRef(onAutoYesSync);
   onOutputRef.current   = onOutput;
   onInputRef.current    = onInput;
   onActivityRef.current = onActivity;
   onPromptBlockedRef.current = onPromptBlocked;
+  onAutoYesSyncRef.current = onAutoYesSync;
   const [connState, setConnState] = useState('disconnected');
 
   // ── 非アクティブ時のバッファリング（フリーズ防止）──────────────
@@ -191,7 +193,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
     let backoff = 1000;
 
     const connect = () => {
-      if (!mounted) return;
+      if (!mounted || !activeRef.current) return; // 非アクティブ時は接続しない
       connectRef.current = connect;
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${proto}//${location.host}/ws`);
@@ -218,6 +220,11 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       ws.onclose = () => {
         wsRef.current = null;
         if (!mounted) return;
+        // 非アクティブ時は再接続しない（active復帰時に再接続する）
+        if (!activeRef.current) {
+          updateState('disconnected');
+          return;
+        }
         updateState('reconnecting');
         reconnectTimeout = setTimeout(connect, backoff);
         backoff = Math.min(backoff * 1.5, 5000);
@@ -249,6 +256,9 @@ const TerminalPanel = forwardRef(function TerminalPanel(
             term.write('\r\n\x1b[90m[session ended]\x1b[0m\r\n');
             break;
           case 'error':  term.write(`\r\n\x1b[31m[error: ${msg.message}]\x1b[0m\r\n`); break;
+          case 'autoyes':
+            onAutoYesSyncRef.current?.(msg.mode);
+            break;
           case 'autoyes-blocked':
             term.write(`\r\n\x1b[33m[⚠ 半自動: 要判断 — 手動で応答してください]\x1b[0m\r\n`);
             onPromptBlockedRef.current?.();
@@ -269,7 +279,10 @@ const TerminalPanel = forwardRef(function TerminalPanel(
       });
     }
 
-    connect();
+    // アクティブな場合のみ初回接続（非アクティブはactive復帰時に接続）
+    if (activeRef.current) {
+      connect();
+    }
 
     let resizeTimer;
     const ro = new ResizeObserver((entries) => {
@@ -316,21 +329,28 @@ const TerminalPanel = forwardRef(function TerminalPanel(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionName, userName, mobile, accentColor]);
 
-  // ── アクティブ復帰時: バッファフラッシュ＆リサイズ ──────────────
+  // ── アクティブ切替: WS接続/切断を制御 ──────────────────────────
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      // 非アクティブ: WSを閉じる（サーバーptyはgrace periodで保持される）
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      // バッファもクリア（再接続時にtmux履歴から取得される）
+      pendingBufferRef.current = [];
+      pendingBytesRef.current = 0;
+      return;
+    }
+    // アクティブ復帰: WSが無ければ再接続
     const term = termRef.current;
     const fitAddon = fitRef.current;
     if (!term) return;
-    // バッファされた出力をフラッシュ
-    if (pendingBufferRef.current.length > 0) {
-      const chunks = pendingBufferRef.current.splice(0);
-      pendingBytesRef.current = 0;
-      // 大量データを一括で書くとフリーズするので requestAnimationFrame で分割
-      requestAnimationFrame(() => {
-        const merged = chunks.join('');
-        term.write(merged, () => term.scrollToBottom());
-      });
+
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      connectRef.current?.();
+    } else {
+      updateState('connected');
     }
     // 1フレーム待ってからリサイズ（display:none解除後にレイアウト確定させる）
     requestAnimationFrame(() => {
@@ -340,7 +360,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       }
     });
-  }, [active]);
+  }, [active, updateState]);
 
   const stateColor = {
     connecting:   '#d29922',

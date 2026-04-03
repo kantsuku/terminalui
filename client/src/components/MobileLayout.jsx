@@ -185,16 +185,27 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     }
   }, [sessions.length, activeIdx]);
 
-  // セッション切替時に表情・状態をリセット
+  // セッション切替時に表情・状態をリセット＋textareaの操作性を回復
   useEffect(() => {
     setIsWorking(false);
     setIsThinking(false);
     setIsDone(false);
     setIsError(false);
+    setPromptWaiting(false);
     clearTimeout(workingTimerRef.current);
     clearTimeout(thinkingTimerRef.current);
     clearTimeout(doneTimerRef.current);
     clearTimeout(errorTimerRef.current);
+
+    // iOS Safari: position:fixed内のDOM変更後にtextareaのタッチ判定が壊れる対策
+    // 短いdelayでtextareaを再描画してブラウザにヒット領域を再計算させる
+    const ta = textareaRef.current;
+    if (ta) {
+      requestAnimationFrame(() => {
+        ta.style.transform = 'translateZ(0)';
+        requestAnimationFrame(() => { ta.style.transform = ''; });
+      });
+    }
   }, [activeIdx]);
 
   // Shell セッションは自動OFF固定、Claude セッションはユーザー設定に従う
@@ -367,8 +378,11 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
     const elapsed = Date.now() - (time || Date.now());
     const velocity = elapsed > 0 ? Math.abs(dx) / elapsed : 0;
     if (dir !== 'v' && Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) && velocity > 0.3) {
-      if (dx < 0) setActiveIdx(i => Math.min(i + 1, visibleSessions.length - 1));
-      else        setActiveIdx(i => Math.max(i - 1, 0));
+      // タッチイベント中のstate更新を次フレームに遅延（iOS描画競合防止）
+      requestAnimationFrame(() => {
+        if (dx < 0) setActiveIdx(i => Math.min(i + 1, visibleSessions.length - 1));
+        else        setActiveIdx(i => Math.max(i - 1, 0));
+      });
     }
   };
 
@@ -515,6 +529,7 @@ export default function MobileLayout({ sessions, createSession, killSession, ren
             onOutput={i === activeIdx ? handleOutput : undefined}
             onInput={i === activeIdx ? handleInput : undefined}
             onPromptBlocked={i === activeIdx ? () => { setPromptWaiting(true); showToast('⚠️ 要判断！手動で応答してください', 'error', 5000); setTimeout(() => setPromptWaiting(false), 10000); } : undefined}
+            onAutoYesSync={i === activeIdx ? (mode) => { setAutoYesMode(mode || false); localStorage.setItem(autoYesModeKey, mode || ''); } : undefined}
           />
         )) : (
           <div className="ml-empty">

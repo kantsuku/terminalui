@@ -121,20 +121,34 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     const t = getTimers(name);
     clearTimeout(t.display);
     if (IMMEDIATE_STATES.includes(state)) {
-      setPanelDisplayStates(prev => ({ ...prev, [name]: state }));
+      setPanelDisplayStates(prev => {
+        if (prev[name] === state) return prev;
+        return { ...prev, [name]: state };
+      });
     } else {
       t.display = setTimeout(() => {
-        setPanelDisplayStates(prev => ({ ...prev, [name]: state }));
+        setPanelDisplayStates(prev => {
+          if (prev[name] === state) return prev;
+          return { ...prev, [name]: state };
+        });
       }, 1000);
     }
   };
 
   const handleActivity = useCallback((name) => {
     const t = getTimers(name);
-    setPanelCharStates(prev => ({ ...prev, [name]: 'working' }));
-    setDisplayState(name, 'working');
+    // 既に working なら state 更新をスキップ（再レンダリング防止）
+    setPanelCharStates(prev => {
+      if (prev[name] === 'working') return prev;
+      return { ...prev, [name]: 'working' };
+    });
+    if (!getTimers(name)._displayWorking) {
+      setDisplayState(name, 'working');
+      getTimers(name)._displayWorking = true;
+    }
     clearTimeout(t.working);
     t.working = setTimeout(() => {
+      t._displayWorking = false;
       setPanelCharStates(prev => {
         if (prev[name] === 'working') {
           notify('⚡ 完了！', `${name} の処理が終わりました`);
@@ -156,17 +170,28 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
     const t = getTimers(name);
 
     if (THINKING_RE.test(clean)) {
-      setPanelCharStates(prev => ({ ...prev, [name]: 'thinking' }));
-      setDisplayState(name, 'thinking');
+      // 既に thinking なら state 更新をスキップ
+      setPanelCharStates(prev => {
+        if (prev[name] === 'thinking') return prev;
+        return { ...prev, [name]: 'thinking' };
+      });
+      if (!t._displayThinking) {
+        setDisplayState(name, 'thinking');
+        t._displayThinking = true;
+      }
       clearTimeout(t.working);
       clearTimeout(t.thinking);
-      t.thinking = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
-      t.working  = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
+      t._displayWorking = false;
+      t.thinking = setTimeout(() => { t._displayThinking = false; setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
+      t.working  = setTimeout(() => { t._displayWorking = false; setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 30000);
       return;
     }
 
     if (/\bError:|error:|\bfailed to\b|✗ /.test(clean)) {
-      setPanelCharStates(prev => ({ ...prev, [name]: 'error' }));
+      setPanelCharStates(prev => {
+        if (prev[name] === 'error') return prev;
+        return { ...prev, [name]: 'error' };
+      });
       setDisplayState(name, 'error');
       clearTimeout(t.error);
       t.error = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 5000);
@@ -175,10 +200,16 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
 
   const handleInput = useCallback((name) => {
     const t = getTimers(name);
-    setPanelCharStates(prev => ({ ...prev, [name]: 'thinking' }));
-    setDisplayState(name, 'thinking');
+    setPanelCharStates(prev => {
+      if (prev[name] === 'thinking') return prev;
+      return { ...prev, [name]: 'thinking' };
+    });
+    if (!t._displayThinking) {
+      setDisplayState(name, 'thinking');
+      t._displayThinking = true;
+    }
     clearTimeout(t.thinking);
-    t.thinking = setTimeout(() => { setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 15000);
+    t.thinking = setTimeout(() => { t._displayThinking = false; setPanelCharStates(p => ({ ...p, [name]: 'idle' })); setDisplayState(name, 'idle'); }, 15000);
   }, []);
 
   // セッション _id → 表示名の解決ヘルパー
@@ -394,6 +425,7 @@ export default function PCLayout({ sessions, createSession, killSession, renameS
                           panelRefs.current[id]?.setClientAutoEnter(!!mode);
                         }
                       }}
+                      onAutoYesSync={(mode) => { setAutoYesMode(prev => ({ ...prev, [id]: mode || false })); }}
                     />
                   </div>
                   {/* コントロール行 */}

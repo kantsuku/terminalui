@@ -105,7 +105,7 @@ const keepAlive = setInterval(() => {
 wss.on('close', () => clearInterval(keepAlive));
 
 // ── pty セッションプール（WS切断後も一定時間保持して再接続時に再利用）──────────
-const PTY_GRACE_MS = 60000; // 60秒間ptyを保持
+const PTY_GRACE_MS = 300000; // 5分間ptyを保持（再接続猶予を拡大）
 const ptyPool = new Map(); // key: tmuxSessionName → { session, graceTimer, wsRef }
 
 function getOrCreatePty(tmuxSession, ws, cols, rows, ntfyTopic) {
@@ -162,8 +162,8 @@ function releasePty(tmuxSession, releasingWs) {
       console.log(`[PtyPool] grace expired but pty reused by new ws, skip: ${tmuxSession}`);
       return;
     }
-    console.log(`[PtyPool] grace expired, killing: ${tmuxSession}`);
-    entry.session.kill();
+    console.log(`[PtyPool] grace expired, detaching pty (tmux session preserved): ${tmuxSession}`);
+    try { entry.session.detach ? entry.session.detach() : entry.session.kill(); } catch {}
     ptyPool.delete(tmuxSession);
   }, PTY_GRACE_MS);
   console.log(`[PtyPool] released (grace ${PTY_GRACE_MS / 1000}s): ${tmuxSession}`);
@@ -680,7 +680,7 @@ wss.on('connection', (ws, req) => {
   ws.on('pong', () => { ws.isAlive = true; ws.missedPongs = 0; });
   let session = null; // { proc, write, resize, kill, setAutoYes, reattachWs }
   let currentTmuxSession = null; // ptyPool のキー
-  let autoYesMode = false; // false | 'semi' | 'full' — attach前に届いた状態をバッファ
+  let autoYesMode = 'semi'; // デフォルト半自動（safe パターンのみ自動応答）— クライアントから変更可
   let attachSeq = 0; // 連続attachリクエストの古い結果を無視するためのシーケンス番号
 
   ws.on('message', (raw) => {
@@ -712,7 +712,8 @@ wss.on('connection', (ws, req) => {
           }
           session = getOrCreatePty(tmuxSession, ws, msg.cols || 80, msg.rows || 24, msg.ntfyTopic || '');
           currentTmuxSession = tmuxSession;
-          if (autoYesMode) session.setAutoYes(autoYesMode);
+          session.setAutoYes(autoYesMode);
+          ws.send(JSON.stringify({ type: 'autoyes', mode: autoYesMode }));
         });
         break;
       }
